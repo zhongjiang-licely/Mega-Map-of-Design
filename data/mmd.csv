@@ -1,0 +1,3 @@
+﻿Layer,Group,Category,Subcategory,Term,Subterm
+Layer 1,G01,Test Category A,Subcat 1,Term 1,Subterm A
+Layer 1,G01,Test Category A,Subcat 1,Term 2,"""Subterm B; Subterm C"""
