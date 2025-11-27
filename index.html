@@ -84,7 +84,7 @@
             padding-right: 0.1em;
             background: linear-gradient(90deg,
                 #deebf7, #bdd7ee, #7eb0de, #4e93d2, #2867A0, #2f5597,
-                #203864, #91c46e, #b3d46a, #c2dd87, #d5e7ad,
+                #203864, #548235, #91c46e, #b3d46a, #c2dd87, #d5e7ad,
                 #fff2cc, #ffe699, #ffd653, #eeb500, #d76213, #ef8d4b,
                 #f5b88f, #faddca, #ffabab, #e17171, #c04c4c, #b12568,
                 #df639e, #e890ba, #f4c8dd, #e3cef2, #b888dc, #9b56ce,
@@ -144,7 +144,7 @@ const DATA_URLS = [
 ];
 
         const CLASSIC_GRADIENT_PALETTE_31 = [
-             "#deebf7", "#bdd7ee", "#7eb0de", "#4e93d2", "#2867A0", "#2f5597",
+            "#deebf7", "#bdd7ee", "#7eb0de", "#4e93d2", "#2867A0", "#2f5597",
             "#203864", "#548235", "#91c46e", "#b3d46a", "#c2dd87", "#d5e7ad",
             "#fff2cc", "#ffe699", "#ffd653", "#eeb500", "#d76213", "#ef8d4b",
             "#f5b88f", "#faddca", "#ffabab", "#e17171", "#c04c4c", "#b12568",
@@ -502,7 +502,7 @@ const DATA_URLS = [
           const [loadStatus, setLoadStatus] = useState("loading");  // loading | ok | error
 
           // 页面加载时自动拉取 CSV（多地址 fallback）
-const CSV_VERSION = "2025-11-28-01"; // 每次换数据改这个字符串
+const CSV_VERSION = "2025-11-28-03"; // 每次换数据改这个字符串
 
 useEffect(() => {
   (async () => {
@@ -1034,3 +1034,4 @@ useEffect(() => {
     </script>
 </body>
 </html>
+
