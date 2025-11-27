@@ -1017,15 +1017,7 @@ useEffect(() => {
                   );
                 })()}
 
-              <div className="fixed bottom-4 left-4 sm:block">
-                <div className="rounded-full bg-slate-900 text-white/90 text-sm px-4 py-2 shadow-lg shadow-black/20">
-                  {loadStatus === "loading"
-                    ? "Loading data…"
-                    : loadStatus === "error"
-                    ? "Failed to load data"
-                    : `Categories: ${count} · Groups: ${CLASSIC_GRADIENT_PALETTE_31.length} Colors Used`}
-                </div>
-              </div>
+
             </div>
           );
         }
@@ -1034,4 +1026,5 @@ useEffect(() => {
     </script>
 </body>
 </html>
+
 
