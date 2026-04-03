@@ -534,7 +534,7 @@ const DATA_URLS = [
             <div className="mt-2">
               {/* 如果有多个 PU，显示 PU 名称作为子标题 */}
               {!singlePU && pu.name && (
-                <div className="text-base font-semibold mb-1 mt-3 opacity-90"
+                <div className="text-base font-medium mb-1 mt-3 opacity-90"
                      style={{ borderBottom: `1px solid ${hexToRgba(textColor, 0.2)}`, paddingBottom: '4px' }}>
                   {pu.name}
                 </div>
@@ -567,25 +567,25 @@ const DATA_URLS = [
               <div className={`pu-expand-section ${expanded ? 'is-expanded' : ''}`}>
                 {pu.whatItIsNot && (
                   <div className="mt-3">
-                    <div className="text-sm font-semibold italic mb-1 opacity-80">What it is not</div>
+                    <div className="text-sm font-normal italic mb-1 opacity-80">What it is not</div>
                     <div className="text-sm leading-relaxed opacity-90">{renderText(pu.whatItIsNot)}</div>
                   </div>
                 )}
                 {pu.howItIsUsed && (
                   <div className="mt-3">
-                    <div className="text-sm font-semibold italic mb-1 opacity-80">How it is used</div>
+                    <div className="text-sm font-normal italic mb-1 opacity-80">How it is used</div>
                     <div className="text-sm leading-relaxed opacity-90">{renderText(pu.howItIsUsed)}</div>
                   </div>
                 )}
                 {pu.howItIsStudied && (
                   <div className="mt-3">
-                    <div className="text-sm font-semibold italic mb-1 opacity-80">How it is studied</div>
+                    <div className="text-sm font-normal italic mb-1 opacity-80">How it is studied</div>
                     <div className="text-sm leading-relaxed opacity-90">{renderText(pu.howItIsStudied)}</div>
                   </div>
                 )}
                 {pu.references && (
                   <div className="mt-3">
-                    <div className="text-sm font-semibold italic mb-1 opacity-80">References</div>
+                    <div className="text-sm font-normal italic mb-1 opacity-80">References</div>
                     <div className="text-sm leading-relaxed opacity-90">{renderText(pu.references)}</div>
                   </div>
                 )}
@@ -1088,7 +1088,7 @@ useEffect(() => {
                                               }}
                                             >
                                               {it.term && (
-                                                <div className="text-lg font-medium mb-1">
+                                                <div className="text-lg font-bold mb-1">
                                                   {it.term}
                                                 </div>
                                               )}
