@@ -511,13 +511,22 @@ const DATA_URLS = [
 
           const hasExtra = pu.whatItIsNot || pu.howItIsUsed || pu.howItIsStudied || pu.references;
 
-          // 渲染多行文本（支持 \n 和 bullet points）
+          // 渲染多行文本：按换行符 或 bullet 符号（•）拆行
           const renderText = (text) => {
             if (!text) return null;
-            // Split by actual newlines
-            const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
+            // 先按真实换行拆分，再对每段按 • 做二次拆分
+            const raw = text.split(/\r?\n/);
+            const lines = [];
+            raw.forEach(seg => {
+              // 如果一段里有多个 • 但没换行（xlsx 常见），按 • 拆开
+              const parts = seg.split(/(?=•)/);
+              parts.forEach(p => {
+                const trimmed = p.trim();
+                if (trimmed) lines.push(trimmed);
+              });
+            });
             return lines.map((line, i) => (
-              <div key={i} className="mb-1 text-sm leading-relaxed">{line}</div>
+              <div key={i} className="mb-1.5 text-sm leading-relaxed">{line}</div>
             ));
           };
 
@@ -533,8 +542,8 @@ const DATA_URLS = [
 
               {/* What it is —— 始终显示，不带标题 */}
               {pu.whatItIs && (
-                <div className="text-sm leading-relaxed mt-1 opacity-90 whitespace-pre-line">
-                  {pu.whatItIs}
+                <div className="text-sm leading-relaxed mt-1 opacity-90">
+                  {renderText(pu.whatItIs)}
                 </div>
               )}
 
@@ -558,26 +567,26 @@ const DATA_URLS = [
               <div className={`pu-expand-section ${expanded ? 'is-expanded' : ''}`}>
                 {pu.whatItIsNot && (
                   <div className="mt-3">
-                    <div className="text-sm font-semibold mb-1 opacity-80">What it is not</div>
-                    <div className="text-sm leading-relaxed opacity-90 whitespace-pre-line">{pu.whatItIsNot}</div>
+                    <div className="text-sm font-semibold italic mb-1 opacity-80">What it is not</div>
+                    <div className="text-sm leading-relaxed opacity-90">{renderText(pu.whatItIsNot)}</div>
                   </div>
                 )}
                 {pu.howItIsUsed && (
                   <div className="mt-3">
-                    <div className="text-sm font-semibold mb-1 opacity-80">How it is used</div>
-                    <div className="text-sm leading-relaxed opacity-90 whitespace-pre-line">{pu.howItIsUsed}</div>
+                    <div className="text-sm font-semibold italic mb-1 opacity-80">How it is used</div>
+                    <div className="text-sm leading-relaxed opacity-90">{renderText(pu.howItIsUsed)}</div>
                   </div>
                 )}
                 {pu.howItIsStudied && (
                   <div className="mt-3">
-                    <div className="text-sm font-semibold mb-1 opacity-80">How it is studied</div>
-                    <div className="text-sm leading-relaxed opacity-90 whitespace-pre-line">{pu.howItIsStudied}</div>
+                    <div className="text-sm font-semibold italic mb-1 opacity-80">How it is studied</div>
+                    <div className="text-sm leading-relaxed opacity-90">{renderText(pu.howItIsStudied)}</div>
                   </div>
                 )}
                 {pu.references && (
                   <div className="mt-3">
-                    <div className="text-sm font-semibold mb-1 opacity-80">References</div>
-                    <div className="text-sm leading-relaxed opacity-90 whitespace-pre-line">{pu.references}</div>
+                    <div className="text-sm font-semibold italic mb-1 opacity-80">References</div>
+                    <div className="text-sm leading-relaxed opacity-90">{renderText(pu.references)}</div>
                   </div>
                 )}
               </div>
