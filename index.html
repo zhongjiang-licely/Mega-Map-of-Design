@@ -684,7 +684,6 @@ const DATA_URLS = [
           const [detailIdx, setDetailIdx] = useState(null);
           const [isContactOpen, setIsContactOpen] = useState(false);
           const [vh, setVh] = useState(800);
-          const [visibleCardCount, setVisibleCardCount] = useState(0);
           const [isPanelClosing, setIsPanelClosing] = useState(false);
           const [isDetailLayoutActive, setIsDetailLayoutActive] = useState(false);
           const [loadStatus, setLoadStatus] = useState("loading");
@@ -724,11 +723,6 @@ useEffect(() => {
             window.addEventListener("resize", update);
             return () => window.removeEventListener("resize", update);
           }, []);
-
-          // 数据就绪后一次性显示所有卡片（不再逐个浮现）
-          useEffect(() => {
-              setVisibleCardCount(flatCategories.length);
-          }, [flatCategories.length]);
 
           useEffect(() => {
             if (active || isContactOpen) {
@@ -792,13 +786,13 @@ useEffect(() => {
             return () => window.removeEventListener('keydown', handleKey);
           }, [active, detailIdx, isContactOpen]);
 
-          const CategoryCard = ({ c, ci, globalIndex, isVisible }) => {
+          const CategoryCard = ({ c, ci }) => {
               const textColor = getTextColorForBackground(c.color);
 
               return (
                 <button
                     onClick={() => openCategory(c.li, c.gi, ci)}
-                    className={`w-full text-left transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                    className="w-full text-left"
                     aria-label={`open ${c.name} overlay`}
                 >
                     <div
@@ -949,8 +943,6 @@ useEffect(() => {
                                                 key={item.data.key}
                                                 c={item.data}
                                                 ci={item.data.ci}
-                                                globalIndex={item.globalIndex}
-                                                isVisible={item.globalIndex < visibleCardCount}
                                             />
                                         ) : (
                                             <EmptyCard key={item.key} />
