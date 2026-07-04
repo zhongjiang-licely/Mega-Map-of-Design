@@ -423,7 +423,7 @@ function renderQ2(){
     // 下一个 trial 或进入自由探索。注意：过渡页仍属于“上一个” trial，
     // 因此 S.cur++ 推迟到被试点“开始下一个任务”进入第 1 步时才执行。
     if (S.cur < S.order.length - 1){ renderInterstitial(); }
-    else { renderFreeIntro(); }
+    else { S.cur = S.order.length; renderFreeIntro(); }   // 自由探索算作第 4 个 trial（下标 3）
   };
 }
 
