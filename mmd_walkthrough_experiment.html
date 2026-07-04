@@ -145,13 +145,25 @@ const SUS_ITEMS = [
 ];
 // 设计项 6 条（1-7）
 const DESIGN_ITEMS = [
-  "逐层展开的导航（点区块弹出子类目、再点出卡片）让我很容易浏览。",
-  "点开条目查看四个字段有助于我理解该术语。",
-  "术语按类目/子类目的组织方式清晰、合理。",
-  "浏览时我能清楚自己所在的位置，不会感到迷失。",
-  "整体版面与呈现清楚、易读。",
-  "MMD 让我接触到一些此前不了解的设计概念。",
-];
+  // 一、导航与结构
+  { section: "一、导航与结构", text: "逐层展开的浏览方式（点区块弹出子类别、再点出卡片）好用、顺畅。" },
+  { section: "一、导航与结构", text: "术语按类别与子类别的组织清晰、合理。" },
+  { section: "一、导航与结构", text: "浏览时我能清楚自己所在的位置，不会迷失。" },
+  // 二、呈现与视觉设计
+  { section: "二、呈现与视觉设计", text: "用颜色区分不同组，有助于我区分与理解整体结构。" },
+  { section: "二、呈现与视觉设计", text: "点开一个类别后，子类别环绕其展开的方式清楚、好辨认。" },
+  { section: "二、呈现与视觉设计", text: "条目卡片上的正文清楚、易读。" },
+  { section: "二、呈现与视觉设计", text: "整体视觉专业、美观。" },
+  // 三、学习与发现价值
+  { section: "三、学习与发现价值", text: "MMD 让我接触到一些此前不了解的设计概念。" },
+  { section: "三、学习与发现价值", text: "作为熟悉陌生设计领域的入门工具，它是有用的。" },
+]
+// 自由探索前的填空题（计入正确率）
+const COUNT_Q = {
+  prompt: "请找一找和 Social Values in Design 关系最密切的类别有几个？（不算 Social Values in Design 本身）",
+  answer: 3,
+};
+
 const OPEN_ITEMS = [
   "你觉得 MMD 平台最有用的是什么？",
   "你认为哪些方面可以改进？",
@@ -168,7 +180,7 @@ const S = {
   logging: false,
   cur: 0,               // 当前 trial 序号（在 order 中的位置）
   freeStart: 0, freeEnd: 0, freeTerms: "", freeSkippedByAdmin: false,
-  sus: [], design: [], open: [],
+  sus: [], design: [], open: [], countAns: null, countCorrect: null,
 };
 
 function now(){ return Date.now(); }
@@ -461,11 +473,22 @@ function renderFreeIntro(){
 }
 
 function renderFreeReady(){
+  curStepKey = "pre_free";
+  panel.innerHTML = `
+    <div class="card">
+      <div class="step-label">下一步 / Next</div>
+      <div class="prompt">三个任务已完成。请先回答下面这道小题，然后再进入自由探索。</div>
+      <button id="b">继续</button>
+    </div>`;
+  document.getElementById("b").onclick = ()=>renderCountQuestion();
+}
+
+function renderFreeStart(){
   curStepKey = "free_intro";
   panel.innerHTML = `
     <div class="card">
       <div class="step-label">自由探索 / Free exploration</div>
-      <div class="prompt">三个任务已完成。接下来请在右侧<b>自由探索 MMD</b>，围绕任何你感兴趣的话题随意浏览。点击下方按钮开始，系统会计时 ${Math.round(FREE_SECONDS/60)} 分钟。</div>
+      <div class="prompt">接下来请在右侧<b>自由探索 MMD</b>，围绕任何你感兴趣的话题随意浏览。点击下方按钮开始，系统会计时 ${Math.round(FREE_SECONDS/60)} 分钟。</div>
       <button id="b">开始探索</button>
     </div>`;
   document.getElementById("b").onclick = ()=>renderFreeExploring();
@@ -522,6 +545,27 @@ function flashToast(msg){
   setTimeout(()=>{ if (d.parentNode) d.parentNode.removeChild(d); }, 2200);
 }
 
+function renderCountQuestion(){
+  curStepKey = "count_question";
+  panel.innerHTML = `
+    <div class="card">
+      <div class="step-label">找一找（可查看右侧 MMD）</div>
+      <div class="prompt">${COUNT_Q.prompt}</div>
+      <input type="text" id="cnt" inputmode="numeric" placeholder="请填写一个数字" />
+      <div class="hint" style="margin-top:8px">请填数字。作答时你可以在右侧 MMD 中查看。</div>
+      <div style="height:10px"></div>
+      <button id="b">提交并继续</button>
+    </div>`;
+  document.getElementById("b").onclick = ()=>{
+    const raw = (document.getElementById("cnt").value||"").trim();
+    if (raw === "" || isNaN(parseInt(raw,10))){ alert("请填写一个数字"); return; }
+    const n = parseInt(raw,10);
+    S.countAns = n;
+    S.countCorrect = (n === COUNT_Q.answer);
+    renderFreeStart();
+  };
+}
+
 function renderFreeQuestion(){
   curStepKey = "free_terms_answer";
   panel.innerHTML = `
@@ -568,13 +612,19 @@ function renderSUS(){
 
 function renderDesign(){
   curStepKey = "questionnaire_design";
-  let items = DESIGN_ITEMS.map((t,i)=>`
+  let lastSec = "";
+  let items = DESIGN_ITEMS.map((it,i)=>{
+    let sec = "";
+    if (it.section !== lastSec){ lastSec = it.section;
+      sec = `<div style="color:#8fd0ff;font-weight:700;font-size:13px;margin:14px 0 8px">${it.section}</div>`; }
+    return sec + `
     <div style="margin-bottom:12px">
-      <div class="prompt" style="margin-bottom:6px">${i+1}. ${t}</div>
+      <div class="prompt" style="margin-bottom:6px">${i+1}. ${it.text}</div>
       <div style="display:flex; gap:5px; flex-wrap:wrap">
         ${[1,2,3,4,5,6,7].map(v=>`<label class="scale"><input type="radio" name="dsg${i}" value="${v}">${v}</label>`).join("")}
       </div>
-    </div>`).join("");
+    </div>`;
+  }).join("");
   panel.innerHTML = `
     <div class="card">
       <div class="step-label">问卷 2 / 3 · 平台设计</div>
@@ -663,6 +713,8 @@ function buildPayload(){
       user_agent: navigator.userAgent,
       screen: { w: screen.width, h: screen.height, dpr: window.devicePixelRatio },
       free_exploration_ms: (S.freeEnd && S.freeStart) ? (S.freeEnd - S.freeStart) : null,
+      count_question_answer: S.countAns,
+      count_question_correct: S.countCorrect,
       free_new_terms: S.freeTerms,
       free_skipped_by_admin: S.freeSkippedByAdmin,
       sus_responses: S.sus,
@@ -705,6 +757,8 @@ function downloadXlsx(){
     ["session_start_iso", meta.session_start_iso],
     ["logging_right_panel", meta.logging_right_panel],
     ["free_exploration_ms", meta.free_exploration_ms],
+    ["count_question_answer", meta.count_question_answer],
+    ["count_question_correct", meta.count_question_correct],
     ["free_new_terms", meta.free_new_terms],
     ["free_skipped_by_admin", meta.free_skipped_by_admin],
     ["user_agent", meta.user_agent],
@@ -735,8 +789,10 @@ function downloadXlsx(){
   const qrows = [["item_type","index","statement","response"]];
   SUS_ITEMS.forEach((t,i)=>qrows.push(["SUS", i+1, t, (S.sus[i]!=null?S.sus[i]:"")]));
   qrows.push(["SUS_SCORE_0_100","", "SUS total (auto)", (meta.sus_score_0_100!=null?meta.sus_score_0_100:"")]);
-  DESIGN_ITEMS.forEach((t,i)=>qrows.push(["DESIGN", i+1, t, (S.design[i]!=null?S.design[i]:"")]));
+  DESIGN_ITEMS.forEach((it,i)=>qrows.push(["DESIGN", i+1, it.text, (S.design[i]!=null?S.design[i]:"")]));
   OPEN_ITEMS.forEach((t,i)=>qrows.push(["OPEN", i+1, t, (S.open[i]||"")]));
+  qrows.push(["COUNT_Q", "", COUNT_Q.prompt, (meta.count_question_answer!=null?meta.count_question_answer:"")]);
+  qrows.push(["COUNT_Q_CORRECT", "", "standard answer = "+COUNT_Q.answer, (meta.count_question_correct===true?"TRUE":(meta.count_question_correct===false?"FALSE":""))]);
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(qrows), "questionnaire");
 
   const stamp = new Date().toISOString().replace(/[:.]/g,"-");
