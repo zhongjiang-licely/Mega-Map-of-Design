@@ -179,15 +179,43 @@ const panel = document.getElementById("panel");
    右侧交互记录 INTERACTION LOGGING
    ============================================================ */
 let curStepKey = "intro";
+// 取最能代表“点到哪”的短文本：优先最近的语义元素（button/a/带role），
+// 否则取被点元素自身的直接文字（不含子孙串联），再退化为首行标题。
+function bestLabel(t){
+  try {
+    // 1) 最近的 button / a / [role] 祖先
+    let el = t, depth = 0;
+    while (el && el.nodeType === 1 && depth < 6){
+      const tn = el.tagName ? el.tagName.toLowerCase() : "";
+      if (tn === "button" || tn === "a" || el.getAttribute && el.getAttribute("role")){
+        const s = (el.textContent||"").trim().replace(/\s+/g," ");
+        if (s) return s.slice(0,40);
+      }
+      el = el.parentElement; depth++;
+    }
+    // 2) 被点元素“自己的”直接文字（跳过子元素串联）
+    let direct = "";
+    if (t && t.childNodes){
+      for (const n of t.childNodes){ if (n.nodeType === 3) direct += n.textContent; }
+      direct = direct.trim().replace(/\s+/g," ");
+    }
+    if (direct) return direct.slice(0,40);
+    // 3) 退化：整块文本的第一行/首词，去掉展开箭头
+    let all = (t.textContent||"").replace(/[▼▲►◄]/g," ").trim().replace(/\s+/g," ");
+    return all.slice(0,40);
+  } catch(e){ return ""; }
+}
+
 function pushInteraction(type, e){
   try {
     const t = e && e.target ? e.target : null;
-    let text = "", tag = "", id = "", cls = "", path = "";
+    let text = "", tag = "", id = "", cls = "", path = "", label = "";
     if (t && t.nodeType === 1){
       tag = t.tagName ? t.tagName.toLowerCase() : "";
       id = t.id || "";
       cls = (typeof t.className === "string") ? t.className : "";
       text = (t.textContent || "").trim().replace(/\s+/g," ").slice(0,60);
+      label = bestLabel(t);
       // 简短 DOM 路径
       let el = t, parts = [], depth = 0;
       while (el && el.nodeType === 1 && depth < 5){
@@ -197,11 +225,22 @@ function pushInteraction(type, e){
       }
       path = parts.join(">");
     }
+    // 坐标：视口坐标 + 相对 iframe 的坐标
+    let vx = (e && e.clientX!=null) ? e.clientX : null;
+    let vy = (e && e.clientY!=null) ? e.clientY : null;
+    let fx = null, fy = null;
+    try {
+      const fr = document.getElementById("mmd");
+      if (fr && vx!=null){
+        const r = fr.getBoundingClientRect();
+        fx = Math.round(vx - r.left);
+        fy = Math.round(vy - r.top);
+      }
+    } catch(_){}
     S.interactions.push({
       t: rel(), trial: S.cur, step: curStepKey, type,
-      tag, id, cls, text, path,
-      x: e && e.clientX!=null ? e.clientX : null,
-      y: e && e.clientY!=null ? e.clientY : null,
+      tag, id, cls, label, text, path,
+      x: vx, y: vy, fx, fy,
     });
   } catch(err){ /* ignore */ }
 }
@@ -381,8 +420,9 @@ function renderQ2(){
     curTrial().answers.mcqChosen = chosen;
     curTrial().answers.mcqCorrect = (chosen === m.correct);
     curTrial().t.t4b = now();
-    // 下一个 trial 或进入自由探索
-    if (S.cur < S.order.length - 1){ S.cur++; renderInterstitial(); }
+    // 下一个 trial 或进入自由探索。注意：过渡页仍属于“上一个” trial，
+    // 因此 S.cur++ 推迟到被试点“开始下一个任务”进入第 1 步时才执行。
+    if (S.cur < S.order.length - 1){ renderInterstitial(); }
     else { renderFreeIntro(); }
   };
 }
@@ -406,7 +446,7 @@ function renderInterstitialReady(){
       <div class="prompt">很好，进入下一个任务。准备好后点击开始。</div>
       <button id="b">开始下一个任务</button>
     </div>`;
-  document.getElementById("b").onclick = ()=>renderStep_findCategory();
+  document.getElementById("b").onclick = ()=>{ S.cur++; renderStep_findCategory(); };
 }
 
 function renderFreeIntro(){
