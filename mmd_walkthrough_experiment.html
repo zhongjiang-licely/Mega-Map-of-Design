@@ -410,11 +410,21 @@ function renderInterstitialReady(){
 }
 
 function renderFreeIntro(){
+  curStepKey = "free_return";
+  panel.innerHTML = `
+    <div class="card">
+      <div class="step-label">自由探索 / Free exploration</div>
+      <div class="prompt"><b style="color:#ffd873">请先点击右侧空白处，退回到 MMD 首页。请勿点击浏览器的回退按钮，也不要刷新页面。</b></div>
+      <button id="b">我已退回首页</button>
+    </div>`;
+  document.getElementById("b").onclick = ()=>renderFreeReady();
+}
+
+function renderFreeReady(){
   curStepKey = "free_intro";
   panel.innerHTML = `
     <div class="card">
       <div class="step-label">自由探索 / Free exploration</div>
-      <div class="prompt"><b style="color:#ffd873">请先点击右侧空白处退回到 MMD 首页；请勿点击浏览器的回退按钮，也不要刷新页面。</b></div>
       <div class="prompt">三个任务已完成。接下来请在右侧<b>自由探索 MMD</b>，围绕任何你感兴趣的话题随意浏览。点击下方按钮开始，系统会计时 ${Math.round(FREE_SECONDS/60)} 分钟。</div>
       <button id="b">开始探索</button>
     </div>`;
@@ -501,6 +511,7 @@ function renderSUS(){
   panel.innerHTML = `
     <div class="card">
       <div class="step-label">问卷 1 / 3 · 可用性量表</div>
+      <div class="prompt" style="background:#16375a;border:1px solid #21507e;border-radius:8px;padding:10px 12px;margin-bottom:12px"><b>作答情境：</b>请以这样的身份作答 —— <b>我是一名设计研究新手，正在探索可能的研究方向。</b></div>
       <div class="prompt">请就每条陈述表明同意程度：<b>1 = 强烈不同意，5 = 强烈同意</b>。</div>
       ${items}
       <div class="hint">1 = 强烈不同意 · 3 = 中立 · 5 = 强烈同意</div>
@@ -527,6 +538,7 @@ function renderDesign(){
   panel.innerHTML = `
     <div class="card">
       <div class="step-label">问卷 2 / 3 · 平台设计</div>
+      <div class="prompt" style="background:#16375a;border:1px solid #21507e;border-radius:8px;padding:10px 12px;margin-bottom:12px"><b>作答情境：</b>请以这样的身份作答 —— <b>我是一名设计研究新手，正在探索可能的研究方向。</b></div>
       <div class="prompt">请就每条陈述表明同意程度：<b>1 = 强烈不同意，7 = 强烈同意</b>。</div>
       ${items}
       <div class="hint">1 = 强烈不同意 · 4 = 中立 · 7 = 强烈同意</div>
