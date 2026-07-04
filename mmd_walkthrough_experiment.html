@@ -45,6 +45,12 @@
   .ok-pill { display:inline-block; font-size: 11px; background:#1f6b3a; color:#c9ffd8; padding:2px 8px; border-radius: 10px; }
   .off-pill { display:inline-block; font-size: 11px; background:#6b3a1f; color:#ffe0c9; padding:2px 8px; border-radius: 10px; }
   .timer { font-size: 12px; color:#ffd873; margin-top:8px; }
+  .toast {
+    position: fixed; top: 24px; left: 50%; transform: translateX(-50%);
+    background: rgba(15,43,70,.95); color: #fff; padding: 14px 22px; border-radius: 10px;
+    font-size: 16px; font-weight: 600; z-index: 9999; pointer-events: none;
+    opacity: 0; transition: opacity .35s ease; box-shadow: 0 6px 24px rgba(0,0,0,.35);
+  }
 </style>
 </head>
 <body>
@@ -114,6 +120,9 @@ const MCQ = {
 // counterbalance：3 目标的 6 种排列，按参与者编号取一种
 const PERMS = [[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]];
 
+// 自由探索时长（秒）
+const FREE_SECONDS = 300;
+
 /* ============================================================
    状态 STATE
    ============================================================ */
@@ -123,7 +132,7 @@ const S = {
   interactions: [],     // 右侧交互日志
   logging: false,
   cur: 0,               // 当前 trial 序号（在 order 中的位置）
-  freeStart: 0, freeEnd: 0,
+  freeStart: 0, freeEnd: 0, freeTerms: "",
 };
 
 function now(){ return Date.now(); }
@@ -231,7 +240,7 @@ function renderIntro(){
 }
 
 function progressLine(){
-  return `<div class="progress">任务 ${S.cur+1} / 3 · 主题：${curTarget().theme}</div>`;
+  return `<div class="progress">任务 ${S.cur+1} / 3</div>`;
 }
 
 function renderStep_findCategory(){
@@ -268,7 +277,7 @@ function renderStep_readDef(){
     ${progressLine()}
     <div class="card">
       <div class="step-label">第 3 步 · 打开并初步理解</div>
-      <div class="prompt">找到 <span class="name">${tg.term}</span> 并点开，<b>阅读它的定义（What it is），形成初步理解</b>。读完后再点下方按钮。</div>
+      <div class="prompt">找到 <span class="name">${tg.term}</span> 并点开，<b>阅读它的定义（What it is），形成初步理解</b>。<b style="color:#ffd873">此步只需阅读定义，不需要点开“More”。</b> 读完后再点下方按钮。</div>
       <button id="b">已阅读并理解</button>
       <div class="hint">点击后计时结束，随后会出现一道回答题（回答不计时）。</div>
     </div>`;
@@ -282,8 +291,9 @@ function renderQ1(){
     ${progressLine()}
     <div class="card">
       <div class="step-label">初步理解题（不计时）</div>
-      <div class="prompt">请用一句话说明 <span class="name">${tg.term}</span> 是什么。</div>
+      <div class="prompt">请用一句话说明 <span class="name">${tg.term}</span> 是什么。<span class="hint">（填中英文均可）</span></div>
       <textarea id="a1" placeholder="用一句话作答…"></textarea>
+      <div class="hint" style="margin-top:8px">答题期间你仍可随意查看右侧 MMD（这段时间的操作也会被记录）。</div>
       <div style="height:10px"></div>
       <button id="b">提交并继续</button>
     </div>`;
@@ -324,6 +334,7 @@ function renderQ2(){
       <div class="step-label">深入理解题（不计时）</div>
       <div class="prompt">${m.q}</div>
       ${opts}
+      <div class="hint" style="margin-top:4px">答题期间你仍可随意查看右侧 MMD（这段时间的操作也会被记录）。</div>
       <div style="height:6px"></div>
       <button id="b">提交</button>
     </div>`;
@@ -336,7 +347,7 @@ function renderQ2(){
     curTrial().t.t4b = now();
     // 下一个 trial 或进入自由探索
     if (S.cur < S.order.length - 1){ S.cur++; renderInterstitial(); }
-    else { renderFree(); }
+    else { renderFreeIntro(); }
   };
 }
 
@@ -345,26 +356,76 @@ function renderInterstitial(){
   panel.innerHTML = `
     <div class="card">
       <div class="step-label">下一个任务 / Next task</div>
-      <div class="prompt">很好，进入下一个任务（主题：${curTarget().theme}）。准备好后点击开始。</div>
+      <div class="prompt"><b style="color:#ffd873">请先点击右侧空白处退回到 MMD 首页；请勿点击浏览器的回退按钮，也不要刷新页面。</b></div>
+      <div class="prompt">很好，进入下一个任务。准备好后点击开始。</div>
       <button id="b">开始下一个任务</button>
     </div>`;
   document.getElementById("b").onclick = ()=>renderStep_findCategory();
 }
 
-function renderFree(){
+function renderFreeIntro(){
+  curStepKey = "free_intro";
+  panel.innerHTML = `
+    <div class="card">
+      <div class="step-label">自由探索 / Free exploration</div>
+      <div class="prompt"><b style="color:#ffd873">请先点击右侧空白处退回到 MMD 首页；请勿点击浏览器的回退按钮，也不要刷新页面。</b></div>
+      <div class="prompt">三个任务已完成。接下来请在右侧<b>自由探索 MMD</b>，围绕任何你感兴趣的话题随意浏览。点击下方按钮开始，系统会计时 ${Math.round(FREE_SECONDS/60)} 分钟。</div>
+      <button id="b">开始探索</button>
+    </div>`;
+  document.getElementById("b").onclick = ()=>renderFreeExploring();
+}
+
+function renderFreeExploring(){
   curStepKey = "free_exploration";
   S.freeStart = now();
   panel.innerHTML = `
     <div class="card">
-      <div class="step-label">自由探索 / Free exploration</div>
-      <div class="prompt">三个任务已完成。请在右侧 <b>自由探索 MMD 几分钟</b>，围绕任何你感兴趣的话题随意浏览。结束后点击下方按钮。</div>
-      <div class="timer" id="tm">已探索 0 秒</div>
-      <div style="height:10px"></div>
-      <button id="b">结束探索</button>
+      <div class="step-label">自由探索中 / Exploring</div>
+      <div class="prompt">请在右侧自由浏览 MMD。计时结束后会自动进入下一步。</div>
+      <div class="timer" id="tm">剩余 05:00</div>
     </div>`;
   const tmEl = document.getElementById("tm");
-  const iv = setInterval(()=>{ tmEl.textContent = "已探索 " + Math.round((now()-S.freeStart)/1000) + " 秒"; }, 1000);
-  document.getElementById("b").onclick = ()=>{ clearInterval(iv); S.freeEnd = now(); renderDone(); };
+  const iv = setInterval(()=>{
+    const left = FREE_SECONDS - Math.floor((now()-S.freeStart)/1000);
+    if (left <= 0){
+      clearInterval(iv);
+      S.freeEnd = now();
+      flashToast("自由探索时间到，请看左侧答题面板");
+      renderFreeQuestion();
+      return;
+    }
+    const mm = String(Math.floor(left/60)).padStart(2,"0");
+    const ss = String(left%60).padStart(2,"0");
+    tmEl.textContent = "剩余 " + mm + ":" + ss;
+  }, 250);
+}
+
+function flashToast(msg){
+  const d = document.createElement("div");
+  d.className = "toast";
+  d.textContent = msg;
+  document.body.appendChild(d);
+  // 出现一下随即消失，不阻断任何操作
+  requestAnimationFrame(()=>{ d.style.opacity = "1"; });
+  setTimeout(()=>{ d.style.opacity = "0"; }, 1600);
+  setTimeout(()=>{ if (d.parentNode) d.parentNode.removeChild(d); }, 2200);
+}
+
+function renderFreeQuestion(){
+  curStepKey = "free_terms_answer";
+  panel.innerHTML = `
+    <div class="card">
+      <div class="step-label">自由探索题（不计时）</div>
+      <div class="prompt">请<b>尽可能多地</b>写下你在刚才自由探索中了解到的<b>新的术语</b>。<span class="hint">（可直接复制英文原词）</span></div>
+      <textarea id="ft" placeholder="一行一个或用逗号分隔，尽量多写…" style="min-height:140px"></textarea>
+      <div class="hint" style="margin-top:8px">答题期间你仍可随意查看右侧 MMD（这段时间的操作也会被记录）。</div>
+      <div style="height:10px"></div>
+      <button id="b">提交并完成</button>
+    </div>`;
+  document.getElementById("b").onclick = ()=>{
+    S.freeTerms = (document.getElementById("ft").value||"").trim();
+    renderDone();
+  };
 }
 
 function renderDone(){
@@ -408,6 +469,7 @@ function buildPayload(){
       user_agent: navigator.userAgent,
       screen: { w: screen.width, h: screen.height, dpr: window.devicePixelRatio },
       free_exploration_ms: (S.freeEnd && S.freeStart) ? (S.freeEnd - S.freeStart) : null,
+      free_new_terms: S.freeTerms,
     },
     trials: S.trials.map((tr,pos)=>({
       position: pos+1,
