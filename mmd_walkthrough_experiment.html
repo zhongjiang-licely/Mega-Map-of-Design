@@ -46,6 +46,8 @@
   .ok-pill { display:inline-block; font-size: 11px; background:#1f6b3a; color:#c9ffd8; padding:2px 8px; border-radius: 10px; }
   .off-pill { display:inline-block; font-size: 11px; background:#6b3a1f; color:#ffe0c9; padding:2px 8px; border-radius: 10px; }
   .timer { font-size: 12px; color:#ffd873; margin-top:8px; }
+  label.scale { background:#0d233c; border:1px solid #35618f; border-radius:6px; padding:6px 10px; cursor:pointer; font-size:13px; }
+  label.scale input { margin-right:4px; }
   .toast {
     position: fixed; top: 24px; left: 50%; transform: translateX(-50%);
     background: rgba(15,43,70,.95); color: #fff; padding: 14px 22px; border-radius: 10px;
@@ -124,6 +126,38 @@ const PERMS = [[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]];
 // 自由探索时长（秒）
 const FREE_SECONDS = 300;
 
+// 管理员快进密钥
+const ADMIN_KEY = "MMD";
+
+// ---- Part 2 问卷 ----
+// SUS 10 项（1-5）；奇数项正向、偶数项负向（标准 SUS）
+const SUS_ITEMS = [
+  "我想我会经常使用 MMD 平台。 (I would like to use the MMD platform frequently.)",
+  "我觉得 MMD 平台过于复杂。 (I found the MMD platform unnecessarily complex.)",
+  "我觉得 MMD 平台易于使用。 (I thought the MMD platform was easy to use.)",
+  "我想我需要技术人员的帮助才能使用 MMD 平台。 (I would need technical support to use it.)",
+  "我觉得 MMD 平台的各项功能整合得很好。 (The functions were well integrated.)",
+  "我觉得 MMD 平台前后不一致之处太多。 (Too much inconsistency in the platform.)",
+  "我想大多数人都能很快学会使用 MMD 平台。 (Most people would learn it very quickly.)",
+  "我觉得 MMD 平台用起来很繁琐。 (I found the platform very cumbersome to use.)",
+  "使用 MMD 平台时我很有信心。 (I felt very confident using the platform.)",
+  "我觉得上手 MMD 平台很复杂。 (I found it very complicated to get going.)",
+];
+// 设计项 6 条（1-7）
+const DESIGN_ITEMS = [
+  "逐层展开的导航（点区块弹出子类目、再点出卡片）让我很容易浏览。",
+  "点开条目查看四个字段有助于我理解该术语。",
+  "术语按类目/子类目的组织方式清晰、合理。",
+  "浏览时我能清楚自己所在的位置，不会感到迷失。",
+  "整体版面与呈现清楚、易读。",
+  "MMD 让我接触到一些此前不了解的设计概念。",
+];
+const OPEN_ITEMS = [
+  "你觉得 MMD 平台最有用的是什么？",
+  "你认为哪些方面可以改进？",
+  "还有其他意见吗？",
+];
+
 /* ============================================================
    状态 STATE
    ============================================================ */
@@ -133,7 +167,8 @@ const S = {
   interactions: [],     // 右侧交互日志
   logging: false,
   cur: 0,               // 当前 trial 序号（在 order 中的位置）
-  freeStart: 0, freeEnd: 0, freeTerms: "",
+  freeStart: 0, freeEnd: 0, freeTerms: "", freeSkippedByAdmin: false,
+  sus: [], design: [], open: [],
 };
 
 function now(){ return Date.now(); }
@@ -394,6 +429,9 @@ function renderFreeExploring(){
       <div class="step-label">自由探索中 / Exploring</div>
       <div class="prompt">请在右侧自由浏览 MMD。时间到后会自动进入下一步。</div>
       <div class="timer" id="tm">剩余 05:00</div>
+      <div style="height:16px"></div>
+      <button id="skip" class="ghost">管理员快进</button>
+      <div class="hint">此按钮仅供持有密钥的管理员使用（用于测试或特殊情况提前结束探索）。被试请勿点击，正常等待计时结束即可。</div>
     </div>`;
   const tmEl = document.getElementById("tm");
   const iv = setInterval(()=>{
@@ -409,6 +447,18 @@ function renderFreeExploring(){
     const ss = String(left%60).padStart(2,"0");
     tmEl.textContent = "剩余 " + mm + ":" + ss;
   }, 250);
+  document.getElementById("skip").onclick = ()=>{
+    const key = prompt("请输入管理员密钥：");
+    if (key === null) return;               // 取消
+    if (key.trim() === ADMIN_KEY){
+      clearInterval(iv);
+      S.freeEnd = now();
+      S.freeSkippedByAdmin = true;          // 记录：本次探索被管理员快进
+      renderFreeQuestion();
+    } else {
+      alert("密钥错误，无法快进。");
+    }
+  };
 }
 
 function flashToast(msg){
@@ -435,6 +485,79 @@ function renderFreeQuestion(){
     </div>`;
   document.getElementById("b").onclick = ()=>{
     S.freeTerms = (document.getElementById("ft").value||"").trim();
+    renderSUS();
+  };
+}
+
+function renderSUS(){
+  curStepKey = "questionnaire_sus";
+  let items = SUS_ITEMS.map((t,i)=>`
+    <div style="margin-bottom:12px">
+      <div class="prompt" style="margin-bottom:6px">${i+1}. ${t}</div>
+      <div style="display:flex; gap:6px">
+        ${[1,2,3,4,5].map(v=>`<label class="scale"><input type="radio" name="sus${i}" value="${v}">${v}</label>`).join("")}
+      </div>
+    </div>`).join("");
+  panel.innerHTML = `
+    <div class="card">
+      <div class="step-label">问卷 1 / 3 · 可用性量表</div>
+      <div class="prompt">请就每条陈述表明同意程度：<b>1 = 强烈不同意，5 = 强烈同意</b>。</div>
+      ${items}
+      <div class="hint">1 = 强烈不同意 · 3 = 中立 · 5 = 强烈同意</div>
+      <div style="height:10px"></div>
+      <button id="b">下一步</button>
+    </div>`;
+  document.getElementById("b").onclick = ()=>{
+    const vals = SUS_ITEMS.map((_,i)=>{ const s=panel.querySelector(`input[name="sus${i}"]:checked`); return s?parseInt(s.value,10):null; });
+    if (vals.some(v=>v===null)){ alert("请完成所有 10 项后再继续。"); return; }
+    S.sus = vals;
+    renderDesign();
+  };
+}
+
+function renderDesign(){
+  curStepKey = "questionnaire_design";
+  let items = DESIGN_ITEMS.map((t,i)=>`
+    <div style="margin-bottom:12px">
+      <div class="prompt" style="margin-bottom:6px">${i+1}. ${t}</div>
+      <div style="display:flex; gap:5px; flex-wrap:wrap">
+        ${[1,2,3,4,5,6,7].map(v=>`<label class="scale"><input type="radio" name="dsg${i}" value="${v}">${v}</label>`).join("")}
+      </div>
+    </div>`).join("");
+  panel.innerHTML = `
+    <div class="card">
+      <div class="step-label">问卷 2 / 3 · 平台设计</div>
+      <div class="prompt">请就每条陈述表明同意程度：<b>1 = 强烈不同意，7 = 强烈同意</b>。</div>
+      ${items}
+      <div class="hint">1 = 强烈不同意 · 4 = 中立 · 7 = 强烈同意</div>
+      <div style="height:10px"></div>
+      <button id="b">下一步</button>
+    </div>`;
+  document.getElementById("b").onclick = ()=>{
+    const vals = DESIGN_ITEMS.map((_,i)=>{ const s=panel.querySelector(`input[name="dsg${i}"]:checked`); return s?parseInt(s.value,10):null; });
+    if (vals.some(v=>v===null)){ alert("请完成所有条目后再继续。"); return; }
+    S.design = vals;
+    renderOpen();
+  };
+}
+
+function renderOpen(){
+  curStepKey = "questionnaire_open";
+  let items = OPEN_ITEMS.map((t,i)=>`
+    <div style="margin-bottom:12px">
+      <div class="prompt" style="margin-bottom:6px">${i+1}. ${t}</div>
+      <textarea id="op${i}" placeholder="可留空…"></textarea>
+    </div>`).join("");
+  panel.innerHTML = `
+    <div class="card">
+      <div class="step-label">问卷 3 / 3 · 开放反馈</div>
+      ${items}
+      <div class="hint">以上开放反馈可留空。</div>
+      <div style="height:10px"></div>
+      <button id="b">提交问卷并完成</button>
+    </div>`;
+  document.getElementById("b").onclick = ()=>{
+    S.open = OPEN_ITEMS.map((_,i)=>(document.getElementById("op"+i).value||"").trim());
     renderDone();
   };
 }
@@ -469,6 +592,14 @@ function derive(tr){
   return d;
 }
 
+function susScore(v){
+  // v: array of 10 responses 1-5; odd items(1,3,5,7,9)->x-1; even->5-x; sum*2.5
+  if (!v || v.length!==10 || v.some(x=>x==null)) return null;
+  let s=0;
+  for (let i=0;i<10;i++){ const x=v[i]; s += ((i%2)===0) ? (x-1) : (5-x); }
+  return s*2.5;
+}
+
 function buildPayload(){
   return {
     meta: {
@@ -481,6 +612,11 @@ function buildPayload(){
       screen: { w: screen.width, h: screen.height, dpr: window.devicePixelRatio },
       free_exploration_ms: (S.freeEnd && S.freeStart) ? (S.freeEnd - S.freeStart) : null,
       free_new_terms: S.freeTerms,
+      free_skipped_by_admin: S.freeSkippedByAdmin,
+      sus_responses: S.sus,
+      sus_score_0_100: susScore(S.sus),
+      design_responses: S.design,
+      open_feedback: S.open,
     },
     trials: S.trials.map((tr,pos)=>({
       position: pos+1,
@@ -518,6 +654,7 @@ function downloadXlsx(){
     ["logging_right_panel", meta.logging_right_panel],
     ["free_exploration_ms", meta.free_exploration_ms],
     ["free_new_terms", meta.free_new_terms],
+    ["free_skipped_by_admin", meta.free_skipped_by_admin],
     ["user_agent", meta.user_agent],
     ["screen", JSON.stringify(meta.screen)],
   ];
@@ -542,6 +679,13 @@ function downloadXlsx(){
   const terms = (meta.free_new_terms||"").split(/[\n,;，；]+/).map(s=>s.trim()).filter(Boolean);
   const ft = [["free_new_term"]].concat(terms.map(t=>[t]));
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ft), "free_terms");
+
+  const qrows = [["item_type","index","statement","response"]];
+  SUS_ITEMS.forEach((t,i)=>qrows.push(["SUS", i+1, t, (S.sus[i]!=null?S.sus[i]:"")]));
+  qrows.push(["SUS_SCORE_0_100","", "SUS total (auto)", (meta.sus_score_0_100!=null?meta.sus_score_0_100:"")]);
+  DESIGN_ITEMS.forEach((t,i)=>qrows.push(["DESIGN", i+1, t, (S.design[i]!=null?S.design[i]:"")]));
+  OPEN_ITEMS.forEach((t,i)=>qrows.push(["OPEN", i+1, t, (S.open[i]||"")]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(qrows), "questionnaire");
 
   const stamp = new Date().toISOString().replace(/[:.]/g,"-");
   XLSX.writeFile(wb, `MMD_walkthrough_P${S.pid}_${stamp}.xlsx`);
