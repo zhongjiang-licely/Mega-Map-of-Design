@@ -46,6 +46,7 @@
   .ok-pill { display:inline-block; font-size: 11px; background:#1f6b3a; color:#c9ffd8; padding:2px 8px; border-radius: 10px; }
   .off-pill { display:inline-block; font-size: 11px; background:#6b3a1f; color:#ffe0c9; padding:2px 8px; border-radius: 10px; }
   .timer { font-size: 12px; color:#ffd873; margin-top:8px; }
+  .endlab { font-size:11px; color:#9db8d2; white-space:nowrap; }
   label.scale { background:#0d233c; border:1px solid #35618f; border-radius:6px; padding:6px 10px; cursor:pointer; font-size:13px; }
   label.scale input { margin-right:4px; }
   .toast {
@@ -92,7 +93,7 @@ const TARGETS = [
 // 选项顺序固定（不打乱）；三题正确项位置错开为 C / B / D
 const MCQ = {
   "Multispecies Design": {                 // 正确项 = C (下标 2)
-    q: "读完其余字段后，下列哪一项最不符合 Multispecies Design？",
+    q: "请你判断，下列哪一项最不符合 Multispecies Design？",
     options: [
       "把非人物种与生态关系视为正当的利益相关者，纳入问题界定与价值判断",
       "关注跨物种共生与照护，在产品、服务与环境中减少对其他物种的伤害",
@@ -101,7 +102,7 @@ const MCQ = {
     ], correct: 2,
   },
   "Design Justice": {                      // 正确项 = B (下标 1)
-    q: "读完其余字段后，下列哪一项最不符合 Design Justice？",
+    q: "请你判断，下列哪一项最不符合 Design Justice？",
     options: [
       "审视设计过程与结果如何再生产或挑战结构性不平等",
       "一种笼统的“公平”承诺，但并不改变既有的决策权力结构",
@@ -110,7 +111,7 @@ const MCQ = {
     ], correct: 1,
   },
   "Artistic Intervention": {               // 正确项 = D (下标 3)
-    q: "读完其余字段后，下列哪一项最不符合 Artistic Intervention？",
+    q: "请你判断，下列哪一项最不符合 Artistic Intervention？",
     options: [
       "以艺术主导的方式，把行动、物件或表演植入真实情境以重构议题",
       "把艺术实践当作探究与变革手段，在具体情境中引发反思",
@@ -146,11 +147,11 @@ const SUS_ITEMS = [
 // 设计项 6 条（1-7）
 const DESIGN_ITEMS = [
   // 一、导航与结构
-  { section: "一、导航与结构", text: "逐层展开的浏览方式（点区块弹出子类别、再点出卡片）好用、顺畅。" },
-  { section: "一、导航与结构", text: "术语按类别与子类别的组织清晰、合理。" },
+  { section: "一、导航与结构", text: "逐层展开的浏览方式好用、顺畅。" },
+  { section: "一、导航与结构", text: "术语按类别与子类别组织，清晰、合理。" },
   { section: "一、导航与结构", text: "浏览时我能清楚自己所在的位置，不会迷失。" },
   // 二、呈现与视觉设计
-  { section: "二、呈现与视觉设计", text: "用颜色区分不同组，有助于我区分与理解整体结构。" },
+  { section: "二、呈现与视觉设计", text: "用颜色区分不同组（类别的关系远近），有助于我理解整体结构。" },
   { section: "二、呈现与视觉设计", text: "点开一个类别后，子类别环绕其展开的方式清楚、好辨认。" },
   { section: "二、呈现与视觉设计", text: "条目卡片上的正文清楚、易读。" },
   { section: "二、呈现与视觉设计", text: "整体视觉专业、美观。" },
@@ -338,7 +339,7 @@ function renderStep_findCategory(){
     ${progressLine()}
     <div class="card">
       <div class="step-label">第 1 步 · 找到 Category</div>
-      <div class="prompt">请在 MMD 首页找到名为 <span class="name">${tg.category}</span> 的彩色区块（category），并点进去。</div>
+      <div class="prompt">请在 MMD 首页找到名为 <span class="name">${tg.category}</span> 这个类别，并点进去。</div>
       <button id="b">已进入 ${tg.category}</button>
     </div>`;
   document.getElementById("b").onclick = ()=>{ curTrial().t.t1 = now(); renderStep_findSub(); };
@@ -351,7 +352,7 @@ function renderStep_findSub(){
     ${progressLine()}
     <div class="card">
       <div class="step-label">第 2 步 · 找到 Subcategory</div>
-      <div class="prompt">在弹出的内容中找到 subcategory <span class="name">${tg.subcategory}</span>，并点进去。</div>
+      <div class="prompt">在弹出的内容中找到 <span class="name">${tg.subcategory}</span> 这个子类别，并点进去。</div>
       <button id="b">已进入 ${tg.subcategory}</button>
     </div>`;
   document.getElementById("b").onclick = ()=>{ curTrial().t.t2 = now(); renderStep_readDef(); };
@@ -364,7 +365,7 @@ function renderStep_readDef(){
     ${progressLine()}
     <div class="card">
       <div class="step-label">第 3 步 · 打开并初步理解</div>
-      <div class="prompt">找到 <span class="name">${tg.term}</span> 并点开，<b>阅读它的定义（What it is），形成初步理解</b>。<b style="color:#ffd873">此步只需阅读定义，不需要点开“More”。</b> 读完后再点下方按钮。</div>
+      <div class="prompt">找到 <span class="name">${tg.term}</span> 并点开，<b>阅读它的定义，形成初步理解</b>。<b style="color:#ffd873">此步只需阅读定义，不需要点开“More”。</b> 读完后再点下方按钮。</div>
       <button id="b">已阅读并理解</button>
       
     </div>`;
@@ -400,7 +401,7 @@ function renderStep_readRest(){
     ${progressLine()}
     <div class="card">
       <div class="step-label">第 4 步 · 深入阅读并加深理解</div>
-      <div class="prompt">请继续阅读该术语的<b>其余字段（What it is not / How it is used / How it is studied），形成更深的理解</b>。读完后再点下方按钮。</div>
+      <div class="prompt">请继续阅读该术语的<b>其余内容，形成更深的理解</b>。读完后再点下方按钮。</div>
       <button id="b">已阅读并理解</button>
       
     </div>`;
@@ -571,8 +572,8 @@ function renderFreeQuestion(){
   panel.innerHTML = `
     <div class="card">
       <div class="step-label">自由探索题</div>
-      <div class="prompt">请<b>尽可能多地</b>写下你在刚才自由探索中了解到的<b>新的术语</b>。<span class="hint">（可直接复制英文原词）</span></div>
-      <textarea id="ft" placeholder="一行一个或用逗号分隔，尽量多写…" style="min-height:140px"></textarea>
+      <div class="prompt">请<b>尽可能多地</b>写下你在刚才自由探索中了解到的<b>新的术语</b>。<b style="color:#ffd873">每写完一个请换行（一行一个）。</b><span class="hint">（可直接复制英文原词）</span></div>
+      <textarea id="ft" placeholder="一行一个，写完一个换行，尽量多写…" style="min-height:140px"></textarea>
       <div class="hint" style="margin-top:8px">答题期间你仍可随意查看右侧 MMD。</div>
       <div style="height:10px"></div>
       <button id="b">提交并完成</button>
@@ -588,14 +589,16 @@ function renderSUS(){
   let items = SUS_ITEMS.map((t,i)=>`
     <div style="margin-bottom:12px">
       <div class="prompt" style="margin-bottom:6px">${i+1}. ${t}</div>
-      <div style="display:flex; gap:6px">
+      <div style="display:flex; align-items:center; gap:6px">
+        <span class="endlab">最不同意</span>
         ${[1,2,3,4,5].map(v=>`<label class="scale"><input type="radio" name="sus${i}" value="${v}">${v}</label>`).join("")}
+        <span class="endlab">最同意</span>
       </div>
     </div>`).join("");
   panel.innerHTML = `
     <div class="card">
       <div class="step-label">问卷 1 / 3 · 可用性量表</div>
-      <div class="prompt" style="background:#16375a;border:1px solid #21507e;border-radius:8px;padding:10px 12px;margin-bottom:12px"><b>作答情境：</b>请以这样的身份作答 —— <b>我是一名设计研究新手，正在探索可能的研究方向。</b></div>
+      <div class="prompt" style="background:#3a2d0e;border:1px solid #b5892a;border-radius:8px;padding:12px 14px;margin-bottom:14px;line-height:1.7"><b style="color:#ffd873;text-decoration:underline">作答情境（请务必代入）：</b><br>请以这样的身份作答 —— <b style="color:#ffe08a;text-decoration:underline;font-size:15px">我是一名设计研究新手，正在探索可能的研究方向。</b></div>
       <div class="prompt">请就每条陈述表明同意程度：<b>1 = 强烈不同意，5 = 强烈同意</b>。</div>
       ${items}
       <div class="hint">1 = 强烈不同意 · 3 = 中立 · 5 = 强烈同意</div>
@@ -620,15 +623,17 @@ function renderDesign(){
     return sec + `
     <div style="margin-bottom:12px">
       <div class="prompt" style="margin-bottom:6px">${i+1}. ${it.text}</div>
-      <div style="display:flex; gap:5px; flex-wrap:wrap">
+      <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap">
+        <span class="endlab">最不同意</span>
         ${[1,2,3,4,5,6,7].map(v=>`<label class="scale"><input type="radio" name="dsg${i}" value="${v}">${v}</label>`).join("")}
+        <span class="endlab">最同意</span>
       </div>
     </div>`;
   }).join("");
   panel.innerHTML = `
     <div class="card">
       <div class="step-label">问卷 2 / 3 · 平台设计</div>
-      <div class="prompt" style="background:#16375a;border:1px solid #21507e;border-radius:8px;padding:10px 12px;margin-bottom:12px"><b>作答情境：</b>请以这样的身份作答 —— <b>我是一名设计研究新手，正在探索可能的研究方向。</b></div>
+      <div class="prompt" style="background:#3a2d0e;border:1px solid #b5892a;border-radius:8px;padding:12px 14px;margin-bottom:14px;line-height:1.7"><b style="color:#ffd873;text-decoration:underline">作答情境（请务必代入）：</b><br>请以这样的身份作答 —— <b style="color:#ffe08a;text-decoration:underline;font-size:15px">我是一名设计研究新手，正在探索可能的研究方向。</b></div>
       <div class="prompt">请就每条陈述表明同意程度：<b>1 = 强烈不同意，7 = 强烈同意</b>。</div>
       ${items}
       <div class="hint">1 = 强烈不同意 · 4 = 中立 · 7 = 强烈同意</div>
