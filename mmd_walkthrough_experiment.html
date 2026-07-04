@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MMD 走查实验 / MMD Walkthrough Study</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+  #app { display: flex; height: 100vh; width: 100vw; }
+  #left {
+    width: 360px; min-width: 360px; height: 100%; overflow-y: auto;
+    background: #0f2b46; color: #eaf1f8; padding: 18px 18px 40px;
+    border-right: 3px solid #0a2036;
+  }
+  #right { flex: 1; height: 100%; position: relative; background: #fff; }
+  #mmd { width: 100%; height: 100%; border: 0; }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  .sub { font-size: 12px; color: #9db8d2; margin-bottom: 14px; }
+  .card { background: #16375a; border: 1px solid #21507e; border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+  .step-label { font-size: 12px; color: #8fd0ff; letter-spacing: .5px; margin-bottom: 6px; }
+  .prompt { font-size: 15px; line-height: 1.6; margin-bottom: 12px; }
+  .name { color: #ffd873; font-weight: 700; }
+  button {
+    width: 100%; padding: 11px 12px; font-size: 14px; border: 0; border-radius: 8px;
+    background: #2f80ed; color: #fff; cursor: pointer; font-weight: 600;
+  }
+  button:hover { background: #2b6fd0; }
+  button.ghost { background: #294769; }
+  button:disabled { background: #33455c; color: #7c8ea3; cursor: not-allowed; }
+  .progress { font-size: 12px; color: #9db8d2; margin-bottom: 10px; }
+  input[type=text], textarea {
+    width: 100%; padding: 9px 10px; border-radius: 7px; border: 1px solid #35618f;
+    background: #0d233c; color: #eaf1f8; font-size: 14px; font-family: inherit;
+  }
+  textarea { min-height: 78px; resize: vertical; }
+  label.opt {
+    display: block; background: #0d233c; border: 1px solid #35618f; border-radius: 8px;
+    padding: 10px 12px; margin-bottom: 8px; font-size: 14px; cursor: pointer; line-height: 1.5;
+  }
+  label.opt:hover { border-color: #5aa0e0; }
+  label.opt input { margin-right: 8px; }
+  .hint { font-size: 12px; color: #9db8d2; margin-top: 8px; line-height: 1.5; }
+  .warn { background: #5a2318; border: 1px solid #a4442f; color: #ffd9cf; font-size: 12px; padding: 10px; border-radius: 8px; margin-top: 12px; line-height: 1.5; }
+  .ok-pill { display:inline-block; font-size: 11px; background:#1f6b3a; color:#c9ffd8; padding:2px 8px; border-radius: 10px; }
+  .off-pill { display:inline-block; font-size: 11px; background:#6b3a1f; color:#ffe0c9; padding:2px 8px; border-radius: 10px; }
+  .timer { font-size: 12px; color:#ffd873; margin-top:8px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="left">
+    <h1>MMD 走查实验</h1>
+    <div class="sub">Mega-Map of Design — Walkthrough Study</div>
+    <div id="log-status"></div>
+    <div id="panel"></div>
+  </div>
+  <div id="right">
+    <iframe id="mmd" title="MMD"></iframe>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   配置 CONFIG
+   ============================================================ */
+// 让右侧交互可被记录：MMD 必须与本页面同源。
+// 部署时把本文件放进 MMD 仓库（与 index.html、data/mmd.xlsx 同目录），保持下面为 "./index.html"。
+// 若改为线上跨域网址，MMD 可显示、计时与答题照常记录，但右侧点击无法记录（浏览器安全限制）。
+const MMD_SRC = "./index.html";
+
+// 三个目标（可持续 / 社会 / 艺术），路径需与 MMD 中的名称完全一致
+const TARGETS = [
+  { theme: "可持续 Sustainability", term: "Multispecies Design",
+    category: "Sustainability", subcategory: "Biodiversity-Oriented Design" },
+  { theme: "社会 Social", term: "Design Justice",
+    category: "Social Values in Design", subcategory: "Equality & Justice in Design" },
+  { theme: "艺术 Art", term: "Artistic Intervention",
+    category: "Art & Design", subcategory: "Artistic Design / Design through Art" },
+];
+
+// 深入理解题（四选一）。correct = 正确项在 options 中的原始下标。呈现时随机打乱。
+// 选项顺序固定（不打乱）；三题正确项位置错开为 C / B / D
+const MCQ = {
+  "Multispecies Design": {                 // 正确项 = C (下标 2)
+    q: "读完其余字段后，下列哪一项最不符合 Multispecies Design？",
+    options: [
+      "把非人物种与生态关系视为正当的利益相关者，纳入问题界定与价值判断",
+      "关注跨物种共生与照护，在产品、服务与环境中减少对其他物种的伤害",
+      "一种以人为中心的可用性方法，仅把自然当作背景脉络来做“自然风”造型",
+      "用思辨情境探讨种间关系的伦理与政治意涵",
+    ], correct: 2,
+  },
+  "Design Justice": {                      // 正确项 = B (下标 1)
+    q: "读完其余字段后，下列哪一项最不符合 Design Justice？",
+    options: [
+      "审视设计过程与结果如何再生产或挑战结构性不平等",
+      "一种笼统的“公平”承诺，但并不改变既有的决策权力结构",
+      "优先由受影响最深的社区主导决策，推动设计权力与收益的再分配",
+      "与相关社区共同设计产品、服务与政策，并审查过程中的参与与问责",
+    ], correct: 1,
+  },
+  "Artistic Intervention": {               // 正确项 = D (下标 3)
+    q: "读完其余字段后，下列哪一项最不符合 Artistic Intervention？",
+    options: [
+      "以艺术主导的方式，把行动、物件或表演植入真实情境以重构议题",
+      "把艺术实践当作探究与变革手段，在具体情境中引发反思",
+      "通过挑衅与重构，揭示隐藏的假设、权力关系或利益相关者视角",
+      "一场在设计完成后附加的常规营销活动或表面美化",
+    ], correct: 3,
+  },
+};
+
+// counterbalance：3 目标的 6 种排列，按参与者编号取一种
+const PERMS = [[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]];
+
+/* ============================================================
+   状态 STATE
+   ============================================================ */
+const S = {
+  pid: "", order: [], sessionStart: 0,
+  trials: [],           // 每个 trial 的时间戳与答案
+  interactions: [],     // 右侧交互日志
+  logging: false,
+  cur: 0,               // 当前 trial 序号（在 order 中的位置）
+  freeStart: 0, freeEnd: 0,
+};
+
+function now(){ return Date.now(); }
+function rel(){ return S.sessionStart ? now() - S.sessionStart : 0; }
+const panel = document.getElementById("panel");
+
+/* ============================================================
+   右侧交互记录 INTERACTION LOGGING
+   ============================================================ */
+let curStepKey = "intro";
+function pushInteraction(type, e){
+  try {
+    const t = e && e.target ? e.target : null;
+    let text = "", tag = "", id = "", cls = "", path = "";
+    if (t && t.nodeType === 1){
+      tag = t.tagName ? t.tagName.toLowerCase() : "";
+      id = t.id || "";
+      cls = (typeof t.className === "string") ? t.className : "";
+      text = (t.textContent || "").trim().replace(/\s+/g," ").slice(0,60);
+      // 简短 DOM 路径
+      let el = t, parts = [], depth = 0;
+      while (el && el.nodeType === 1 && depth < 5){
+        let seg = el.tagName.toLowerCase();
+        if (el.id) seg += "#" + el.id;
+        parts.unshift(seg); el = el.parentElement; depth++;
+      }
+      path = parts.join(">");
+    }
+    S.interactions.push({
+      t: rel(), trial: S.cur, step: curStepKey, type,
+      tag, id, cls, text, path,
+      x: e && e.clientX!=null ? e.clientX : null,
+      y: e && e.clientY!=null ? e.clientY : null,
+    });
+  } catch(err){ /* ignore */ }
+}
+
+let lastScroll = 0;
+function attachLogging(doc){
+  doc.addEventListener("click", (e)=>pushInteraction("click", e), true);
+  doc.addEventListener("keydown", (e)=>pushInteraction("key:"+(e.key||""), {target:e.target}), true);
+  doc.addEventListener("scroll", (e)=>{
+    const n = now(); if (n - lastScroll < 400) return; lastScroll = n;
+    pushInteraction("scroll", e);
+  }, true);
+}
+
+function setupIframe(){
+  const f = document.getElementById("mmd");
+  f.src = MMD_SRC;
+  f.addEventListener("load", ()=>{
+    try {
+      const doc = f.contentDocument || f.contentWindow.document;
+      // 触碰一下以确认同源
+      void doc.title;
+      attachLogging(doc);
+      S.logging = true;
+      renderLogStatus();
+    } catch(err){
+      S.logging = false;
+      renderLogStatus();
+    }
+  });
+}
+
+function renderLogStatus(){
+  const el = document.getElementById("log-status");
+  el.innerHTML = S.logging
+    ? '<span class="ok-pill">右侧交互记录：开启</span>'
+    : '<span class="off-pill">右侧交互记录：关闭（跨域，无法记录点击）</span>';
+}
+
+/* ============================================================
+   界面流程 FLOW
+   ============================================================ */
+function curTarget(){ return TARGETS[S.order[S.cur]]; }
+function curTrial(){ return S.trials[S.cur]; }
+
+function renderIntro(){
+  curStepKey = "intro";
+  panel.innerHTML = `
+    <div class="card">
+      <div class="step-label">开始前 / Before you start</div>
+      <div class="prompt">欢迎参加本次 MMD 走查实验。请在右侧使用 MMD 平台完成三个小任务，每个任务都会一步步引导你。请按提示操作，并在读完后如实回答问题。</div>
+      <div class="prompt">请输入你的参与者编号（1–12）：</div>
+      <input type="text" id="pid" placeholder="例如 3" />
+      <div style="height:10px"></div>
+      <button id="startBtn">开始实验</button>
+      <div class="hint">开始后请勿刷新页面。全部完成后点击“完成实验”会自动下载数据文件，请把该文件交给研究者。</div>
+    </div>`;
+  document.getElementById("startBtn").onclick = ()=>{
+    const v = (document.getElementById("pid").value||"").trim();
+    if (!v){ alert("请先输入参与者编号"); return; }
+    S.pid = v;
+    const n = parseInt(v.replace(/\D/g,""),10);
+    const idx = (!isNaN(n) ? (n-1) : 0) % 6;
+    S.order = PERMS[(idx+6)%6].slice();
+    S.sessionStart = now();
+    S.trials = S.order.map(i=>({ theme: TARGETS[i].theme, term: TARGETS[i].term,
+      category: TARGETS[i].category, subcategory: TARGETS[i].subcategory,
+      t:{} , answers:{} }));
+    S.cur = 0;
+    renderStep_findCategory();
+  };
+}
+
+function progressLine(){
+  return `<div class="progress">任务 ${S.cur+1} / 3 · 主题：${curTarget().theme}</div>`;
+}
+
+function renderStep_findCategory(){
+  curStepKey = "find_category";
+  const tg = curTarget();
+  if (!curTrial().t.t0) curTrial().t.t0 = now();
+  panel.innerHTML = `
+    ${progressLine()}
+    <div class="card">
+      <div class="step-label">第 1 步 · 找到 Category</div>
+      <div class="prompt">请在 MMD 首页找到名为 <span class="name">${tg.category}</span> 的彩色区块（category），并点进去。</div>
+      <button id="b">已进入 ${tg.category}</button>
+    </div>`;
+  document.getElementById("b").onclick = ()=>{ curTrial().t.t1 = now(); renderStep_findSub(); };
+}
+
+function renderStep_findSub(){
+  curStepKey = "find_subcategory";
+  const tg = curTarget();
+  panel.innerHTML = `
+    ${progressLine()}
+    <div class="card">
+      <div class="step-label">第 2 步 · 找到 Subcategory</div>
+      <div class="prompt">在弹出的内容中找到 subcategory <span class="name">${tg.subcategory}</span>，并点进去。</div>
+      <button id="b">已进入 ${tg.subcategory}</button>
+    </div>`;
+  document.getElementById("b").onclick = ()=>{ curTrial().t.t2 = now(); renderStep_readDef(); };
+}
+
+function renderStep_readDef(){
+  curStepKey = "read_def";
+  const tg = curTarget();
+  panel.innerHTML = `
+    ${progressLine()}
+    <div class="card">
+      <div class="step-label">第 3 步 · 打开并初步理解</div>
+      <div class="prompt">找到 <span class="name">${tg.term}</span> 并点开，<b>阅读它的定义（What it is），形成初步理解</b>。读完后再点下方按钮。</div>
+      <button id="b">已阅读并理解</button>
+      <div class="hint">点击后计时结束，随后会出现一道回答题（回答不计时）。</div>
+    </div>`;
+  document.getElementById("b").onclick = ()=>{ curTrial().t.t3 = now(); renderQ1(); };
+}
+
+function renderQ1(){
+  curStepKey = "q1_answer";
+  const tg = curTarget();
+  panel.innerHTML = `
+    ${progressLine()}
+    <div class="card">
+      <div class="step-label">初步理解题（不计时）</div>
+      <div class="prompt">请用一句话说明 <span class="name">${tg.term}</span> 是什么。</div>
+      <textarea id="a1" placeholder="用一句话作答…"></textarea>
+      <div style="height:10px"></div>
+      <button id="b">提交并继续</button>
+    </div>`;
+  document.getElementById("b").onclick = ()=>{
+    const v = (document.getElementById("a1").value||"").trim();
+    if (!v){ alert("请先用一句话作答"); return; }
+    curTrial().answers.oneSentence = v;
+    curTrial().t.t3b = now();
+    renderStep_readRest();
+  };
+}
+
+function renderStep_readRest(){
+  curStepKey = "read_rest";
+  const tg = curTarget();
+  panel.innerHTML = `
+    ${progressLine()}
+    <div class="card">
+      <div class="step-label">第 4 步 · 深入阅读并加深理解</div>
+      <div class="prompt">请继续阅读该术语的<b>其余字段（What it is not / How it is used / How it is studied），形成更深的理解</b>。读完后再点下方按钮。</div>
+      <button id="b">已阅读并理解</button>
+      <div class="hint">点击后计时结束，随后会出现一道选择题（回答不计时）。</div>
+    </div>`;
+  document.getElementById("b").onclick = ()=>{ curTrial().t.t4 = now(); renderQ2(); };
+}
+
+function renderQ2(){
+  curStepKey = "q2_answer";
+  const tg = curTarget();
+  const m = MCQ[tg.term];
+  // 选项顺序固定，不打乱
+  const letters = ["A","B","C","D"];
+  let opts = m.options.map((txt,oi)=>`
+    <label class="opt"><input type="radio" name="mcq" value="${oi}"> ${letters[oi]}. ${txt}</label>`).join("");
+  panel.innerHTML = `
+    ${progressLine()}
+    <div class="card">
+      <div class="step-label">深入理解题（不计时）</div>
+      <div class="prompt">${m.q}</div>
+      ${opts}
+      <div style="height:6px"></div>
+      <button id="b">提交</button>
+    </div>`;
+  document.getElementById("b").onclick = ()=>{
+    const sel = panel.querySelector('input[name="mcq"]:checked');
+    if (!sel){ alert("请先选择一个选项"); return; }
+    const chosen = parseInt(sel.value,10);
+    curTrial().answers.mcqChosen = chosen;
+    curTrial().answers.mcqCorrect = (chosen === m.correct);
+    curTrial().t.t4b = now();
+    // 下一个 trial 或进入自由探索
+    if (S.cur < S.order.length - 1){ S.cur++; renderInterstitial(); }
+    else { renderFree(); }
+  };
+}
+
+function renderInterstitial(){
+  curStepKey = "interstitial";
+  panel.innerHTML = `
+    <div class="card">
+      <div class="step-label">下一个任务 / Next task</div>
+      <div class="prompt">很好，进入下一个任务（主题：${curTarget().theme}）。准备好后点击开始。</div>
+      <button id="b">开始下一个任务</button>
+    </div>`;
+  document.getElementById("b").onclick = ()=>renderStep_findCategory();
+}
+
+function renderFree(){
+  curStepKey = "free_exploration";
+  S.freeStart = now();
+  panel.innerHTML = `
+    <div class="card">
+      <div class="step-label">自由探索 / Free exploration</div>
+      <div class="prompt">三个任务已完成。请在右侧 <b>自由探索 MMD 几分钟</b>，围绕任何你感兴趣的话题随意浏览。结束后点击下方按钮。</div>
+      <div class="timer" id="tm">已探索 0 秒</div>
+      <div style="height:10px"></div>
+      <button id="b">结束探索</button>
+    </div>`;
+  const tmEl = document.getElementById("tm");
+  const iv = setInterval(()=>{ tmEl.textContent = "已探索 " + Math.round((now()-S.freeStart)/1000) + " 秒"; }, 1000);
+  document.getElementById("b").onclick = ()=>{ clearInterval(iv); S.freeEnd = now(); renderDone(); };
+}
+
+function renderDone(){
+  curStepKey = "done";
+  panel.innerHTML = `
+    <div class="card">
+      <div class="step-label">完成 / Finish</div>
+      <div class="prompt">感谢参与！点击下方按钮会把本次实验的全部数据下载到你的电脑，请将下载的文件交给研究者。</div>
+      <button id="b">完成实验并下载数据</button>
+      <div class="warn">如果点击后没有开始下载，请检查浏览器是否拦截了下载或弹窗（地址栏右侧可能有拦截提示），允许后再点一次。</div>
+      <div class="hint" id="dl2" style="display:none">如仍未下载，请点这里再试：<button id="b2" style="margin-top:6px">再次下载</button></div>
+    </div>`;
+  document.getElementById("b").onclick = ()=>{ downloadData(); document.getElementById("dl2").style.display="block"; };
+  // 兜底
+  setTimeout(()=>{ const b2=document.getElementById("b2"); if(b2) b2.onclick = downloadData; }, 0);
+}
+
+/* ============================================================
+   计算派生耗时并下载
+   ============================================================ */
+function derive(tr){
+  const t = tr.t;
+  const d = {};
+  if (t.t1&&t.t0) d.find_category_ms = t.t1 - t.t0;
+  if (t.t2&&t.t1) d.find_subcategory_ms = t.t2 - t.t1;
+  if (t.t3&&t.t2) d.initial_understanding_ms = t.t3 - t.t2;   // 打开+读定义
+  if (t.t4&&t.t3b) d.deep_understanding_ms = t.t4 - t.t3b;    // 从答完初步题起，到读完其余字段
+  if (t.t3b&&t.t3) d.q1_answer_ms = t.t3b - t.t3;             // 答题（不计入理解）
+  if (t.t4b&&t.t4) d.q2_answer_ms = t.t4b - t.t4;             // 答题（不计入理解）
+  return d;
+}
+
+function buildPayload(){
+  return {
+    meta: {
+      participant: S.pid,
+      order_permutation: S.order,           // TARGETS 下标顺序
+      order_terms: S.order.map(i=>TARGETS[i].term),
+      session_start_iso: new Date(S.sessionStart).toISOString(),
+      logging_right_panel: S.logging,
+      user_agent: navigator.userAgent,
+      screen: { w: screen.width, h: screen.height, dpr: window.devicePixelRatio },
+      free_exploration_ms: (S.freeEnd && S.freeStart) ? (S.freeEnd - S.freeStart) : null,
+    },
+    trials: S.trials.map((tr,pos)=>({
+      position: pos+1,
+      theme: tr.theme, term: tr.term, category: tr.category, subcategory: tr.subcategory,
+      timestamps_ms_rel: Object.fromEntries(Object.entries(tr.t).map(([k,v])=>[k, v - S.sessionStart])),
+      durations_ms: derive(tr),
+      answers: tr.answers,
+    })),
+    interactions: S.interactions,
+  };
+}
+
+function downloadData(){
+  const data = buildPayload();
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
+  const url = URL.createObjectURL(blob);
+  const stamp = new Date().toISOString().replace(/[:.]/g,"-");
+  const a = document.createElement("a");
+  a.href = url; a.download = `MMD_walkthrough_P${S.pid}_${stamp}.json`;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 1500);
+}
+
+/* ============================================================
+   启动 INIT
+   ============================================================ */
+setupIframe();
+renderLogStatus();
+renderIntro();
+</script>
+</body>
+</html>
