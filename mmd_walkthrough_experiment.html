@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MMD 走查实验 / MMD Walkthrough Study</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
@@ -443,14 +444,14 @@ function renderDone(){
   panel.innerHTML = `
     <div class="card">
       <div class="step-label">完成 / Finish</div>
-      <div class="prompt">感谢参与！点击下方按钮会把本次实验的全部数据下载到你的电脑，请将下载的文件交给研究者。</div>
+      <div class="prompt">感谢参与！点击下方按钮会把本次实验的数据下载到你的电脑（共两个文件：一个 .json 和一个 .xlsx），请将下载的文件一并交给研究者。</div>
       <button id="b">完成实验并下载数据</button>
-      <div class="warn">如果点击后没有开始下载，请检查浏览器是否拦截了下载或弹窗（地址栏右侧可能有拦截提示），允许后再点一次。</div>
+      <div class="warn">如果点击后没有开始下载，或只下载到一个文件，请检查浏览器是否拦截了下载/弹窗（地址栏右侧可能有提示），选择“允许”后再点一次。需要下载两个文件（.json 与 .xlsx）。</div>
       <div class="hint" id="dl2" style="display:none">如仍未下载，请点这里再试：<button id="b2" style="margin-top:6px">再次下载</button></div>
     </div>`;
-  document.getElementById("b").onclick = ()=>{ downloadData(); document.getElementById("dl2").style.display="block"; };
+  document.getElementById("b").onclick = ()=>{ downloadAll(); document.getElementById("dl2").style.display="block"; };
   // 兜底
-  setTimeout(()=>{ const b2=document.getElementById("b2"); if(b2) b2.onclick = downloadData; }, 0);
+  setTimeout(()=>{ const b2=document.getElementById("b2"); if(b2) b2.onclick = downloadAll; }, 0);
 }
 
 /* ============================================================
@@ -501,6 +502,56 @@ function downloadData(){
   a.href = url; a.download = `MMD_walkthrough_P${S.pid}_${stamp}.json`;
   document.body.appendChild(a); a.click();
   setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 1500);
+}
+
+function downloadXlsx(){
+  if (typeof XLSX === "undefined"){ return false; }
+  const data = buildPayload();
+  const meta = data.meta;
+  const wb = XLSX.utils.book_new();
+
+  const metaRows = [
+    ["participant", meta.participant],
+    ["order_terms", (meta.order_terms||[]).join(" | ")],
+    ["order_permutation", (meta.order_permutation||[]).join(",")],
+    ["session_start_iso", meta.session_start_iso],
+    ["logging_right_panel", meta.logging_right_panel],
+    ["free_exploration_ms", meta.free_exploration_ms],
+    ["free_new_terms", meta.free_new_terms],
+    ["user_agent", meta.user_agent],
+    ["screen", JSON.stringify(meta.screen)],
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(metaRows), "meta");
+
+  const letters = ["A","B","C","D"];
+  const head = ["position","theme","term","category","subcategory",
+    "t0","t1","t2","t3","t3b","t4","t4b",
+    "find_category_ms","find_subcategory_ms","initial_understanding_ms","deep_understanding_ms","q1_answer_ms","q2_answer_ms",
+    "one_sentence","mcq_chosen","mcq_correct"];
+  const rows = [head];
+  data.trials.forEach(tr=>{
+    const ts = tr.timestamps_ms_rel||{}, d = tr.durations_ms||{}, a = tr.answers||{};
+    rows.push([tr.position, tr.theme, tr.term, tr.category, tr.subcategory,
+      ts.t0, ts.t1, ts.t2, ts.t3, ts.t3b, ts.t4, ts.t4b,
+      d.find_category_ms, d.find_subcategory_ms, d.initial_understanding_ms, d.deep_understanding_ms, d.q1_answer_ms, d.q2_answer_ms,
+      a.oneSentence||"", (a.mcqChosen!=null?letters[a.mcqChosen]:""),
+      (a.mcqCorrect===true?"TRUE":(a.mcqCorrect===false?"FALSE":""))]);
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), "trials");
+
+  const terms = (meta.free_new_terms||"").split(/[\n,;，；]+/).map(s=>s.trim()).filter(Boolean);
+  const ft = [["free_new_term"]].concat(terms.map(t=>[t]));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ft), "free_terms");
+
+  const stamp = new Date().toISOString().replace(/[:.]/g,"-");
+  XLSX.writeFile(wb, `MMD_walkthrough_P${S.pid}_${stamp}.xlsx`);
+  return true;
+}
+
+function downloadAll(){
+  downloadData();
+  const ok = downloadXlsx();
+  return ok;
 }
 
 /* ============================================================
