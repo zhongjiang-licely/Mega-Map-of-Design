@@ -46,6 +46,7 @@
   .ok-pill { display:inline-block; font-size: 11px; background:#1f6b3a; color:#c9ffd8; padding:2px 8px; border-radius: 10px; }
   .off-pill { display:inline-block; font-size: 11px; background:#6b3a1f; color:#ffe0c9; padding:2px 8px; border-radius: 10px; }
   .timer { font-size: 12px; color:#ffd873; margin-top:8px; }
+  .endrow { display:flex; justify-content:space-between; margin-top:3px; }
   .endlab { font-size:11px; color:#9db8d2; white-space:nowrap; }
   label.scale { background:#0d233c; border:1px solid #35618f; border-radius:6px; padding:6px 10px; cursor:pointer; font-size:13px; }
   label.scale input { margin-right:4px; }
@@ -151,13 +152,13 @@ const DESIGN_ITEMS = [
   { section: "一、导航与结构", text: "术语按类别与子类别组织，清晰、合理。" },
   { section: "一、导航与结构", text: "浏览时我能清楚自己所在的位置，不会迷失。" },
   // 二、呈现与视觉设计
-  { section: "二、呈现与视觉设计", text: "用颜色区分不同组（类别的关系远近），有助于我理解整体结构。" },
+  { section: "二、呈现与视觉设计", text: "用颜色区分不同类别的关系远近，有助于我理解整体结构。" },
   { section: "二、呈现与视觉设计", text: "点开一个类别后，子类别环绕其展开的方式清楚、好辨认。" },
   { section: "二、呈现与视觉设计", text: "条目卡片上的正文清楚、易读。" },
   { section: "二、呈现与视觉设计", text: "整体视觉专业、美观。" },
   // 三、学习与发现价值
   { section: "三、学习与发现价值", text: "MMD 让我接触到一些此前不了解的设计概念。" },
-  { section: "三、学习与发现价值", text: "作为熟悉陌生设计领域的入门工具，它是有用的。" },
+  { section: "三、学习与发现价值", text: "作为入门工具来帮我熟悉那些本来比较陌生的设计子领域，它是有用的。" },
 ]
 // 自由探索前的填空题（计入正确率）
 const COUNT_Q = {
@@ -573,7 +574,7 @@ function renderFreeQuestion(){
     <div class="card">
       <div class="step-label">自由探索题</div>
       <div class="prompt">请<b>尽可能多地</b>写下你在刚才自由探索中了解到的<b>新的术语</b>。<b style="color:#ffd873">每写完一个请换行（一行一个）。</b><span class="hint">（可直接复制英文原词）</span></div>
-      <textarea id="ft" placeholder="一行一个，写完一个换行，尽量多写…" style="min-height:140px"></textarea>
+      <textarea id="ft" placeholder="一行一个，写完一个换行" style="min-height:140px"></textarea>
       <div class="hint" style="margin-top:8px">答题期间你仍可随意查看右侧 MMD。</div>
       <div style="height:10px"></div>
       <button id="b">提交并完成</button>
@@ -589,11 +590,10 @@ function renderSUS(){
   let items = SUS_ITEMS.map((t,i)=>`
     <div style="margin-bottom:12px">
       <div class="prompt" style="margin-bottom:6px">${i+1}. ${t}</div>
-      <div style="display:flex; align-items:center; gap:6px">
-        <span class="endlab">最不同意</span>
+      <div style="display:flex; gap:6px">
         ${[1,2,3,4,5].map(v=>`<label class="scale"><input type="radio" name="sus${i}" value="${v}">${v}</label>`).join("")}
-        <span class="endlab">最同意</span>
       </div>
+      <div class="endrow"><span class="endlab">最不同意</span><span class="endlab">最同意</span></div>
     </div>`).join("");
   panel.innerHTML = `
     <div class="card">
@@ -623,11 +623,10 @@ function renderDesign(){
     return sec + `
     <div style="margin-bottom:12px">
       <div class="prompt" style="margin-bottom:6px">${i+1}. ${it.text}</div>
-      <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap">
-        <span class="endlab">最不同意</span>
+      <div style="display:flex; gap:5px; flex-wrap:wrap">
         ${[1,2,3,4,5,6,7].map(v=>`<label class="scale"><input type="radio" name="dsg${i}" value="${v}">${v}</label>`).join("")}
-        <span class="endlab">最同意</span>
       </div>
+      <div class="endrow"><span class="endlab">最不同意</span><span class="endlab">最同意</span></div>
     </div>`;
   }).join("");
   panel.innerHTML = `
