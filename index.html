@@ -27,6 +27,192 @@
             --scale: 1;
         }
         /* zoom 会一并缩放 fixed 元素，故全屏层按系数还原为整屏 */
+        /* ---------- 检索栏 ---------- */
+        .search-bar-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 560px;
+            margin: 0 auto 8px auto;
+        }
+        .search-input-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            background: #fff;
+            padding: 2px 6px 2px 8px;
+        }
+        .search-input-row:focus-within {
+            border-color: #64748b;
+            box-shadow: 0 0 0 3px rgba(100,116,139,0.12);
+        }
+        .search-icon { font-size: 14px; color: #64748b; line-height: 1; }
+        .search-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 12px;
+            padding: 4px 2px;
+            background: transparent;
+            color: #0f172a;
+        }
+        .search-clear {
+            font-size: 14px;
+            line-height: 1;
+            color: #94a3b8;
+            padding: 0 4px;
+        }
+        .search-clear:hover { color: #0f172a; }
+        .search-fields-toggle,
+        .search-go {
+            font-size: 10.5px;
+            font-weight: 600;
+            border-radius: 7px;
+            padding: 3px 8px;
+            white-space: nowrap;
+        }
+        .search-fields-toggle {
+            border: 1px solid #cbd5e1;
+            color: #475569;
+            background: #f8fafc;
+        }
+        .search-fields-toggle:hover { background: #f1f5f9; }
+        .search-go {
+            background: #0f172a;
+            color: #fff;
+        }
+        .search-go:hover { background: #1e293b; }
+        .search-count {
+            position: absolute;
+            right: 4px;
+            top: 100%;
+            margin-top: 2px;
+            font-size: 10px;
+            color: #64748b;
+        }
+        .search-popover {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            right: 0;
+            z-index: 40;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            box-shadow: 0 12px 30px rgba(15,23,42,0.16);
+            padding: 6px;
+            max-height: 320px;
+            overflow-y: auto;
+            text-align: left;
+        }
+        .search-field-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11.5px;
+            color: #334155;
+            padding: 4px 6px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .search-field-row:hover { background: #f1f5f9; }
+        .search-field-note {
+            font-size: 10px;
+            color: #94a3b8;
+            padding: 4px 6px 2px 6px;
+        }
+        .search-suggest-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            text-align: left;
+            font-size: 11.5px;
+            color: #0f172a;
+            padding: 5px 6px;
+            border-radius: 6px;
+        }
+        .search-suggest-row:hover,
+        .search-suggest-row.is-active { background: #f1f5f9; }
+        .search-suggest-dot {
+            width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0;
+        }
+        .search-suggest-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .search-suggest-level { font-size: 10px; color: #94a3b8; flex-shrink: 0; }
+        .search-mark { background: #fde68a; color: inherit; border-radius: 2px; padding: 0 1px; }
+
+        /* ---------- 结果面板 ---------- */
+        .search-results {
+            margin-top: 60px;
+            width: 720px;
+            max-width: 92vw;
+            max-height: 76vh;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 24px 60px rgba(15,23,42,0.35);
+            overflow: hidden;
+        }
+        .search-results-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 12px;
+            color: #334155;
+        }
+        .search-results-close { font-size: 18px; line-height: 1; color: #94a3b8; }
+        .search-results-close:hover { color: #0f172a; }
+        .search-results-body { overflow-y: auto; padding: 8px 8px 16px 8px; }
+        .search-group { margin-bottom: 10px; }
+        .search-group-head {
+            font-size: 10.5px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #94a3b8;
+            padding: 6px 8px 4px 8px;
+        }
+        .search-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            width: 100%;
+            text-align: left;
+            padding: 7px 8px;
+            border-radius: 8px;
+        }
+        .search-row:hover { background: #f1f5f9; }
+        .search-row-dot { width: 8px; height: 8px; border-radius: 999px; margin-top: 4px; flex-shrink: 0; }
+        .search-row-main { flex: 1; min-width: 0; }
+        .search-row-path { display: block; font-size: 10px; color: #94a3b8; margin-bottom: 1px; }
+        .search-row-text { display: block; font-size: 11.5px; color: #0f172a; line-height: 1.5; }
+        .search-row-level { font-size: 10px; color: #94a3b8; flex-shrink: 0; margin-top: 2px; }
+        .search-more { font-size: 10px; color: #94a3b8; padding: 2px 8px 6px 8px; }
+        .search-empty { font-size: 12px; color: #64748b; padding: 24px; text-align: center; }
+
+        /* ---------- 首页命中高亮 ---------- */
+        .card-dimmed { opacity: 0.18; filter: saturate(0.4); }
+        .card-hit-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            min-width: 16px;
+            height: 16px;
+            padding: 0 4px;
+            border-radius: 999px;
+            background: #0f172a;
+            color: #fff;
+            font-size: 9.5px;
+            font-weight: 700;
+            line-height: 16px;
+            text-align: center;
+            box-shadow: 0 1px 4px rgba(15,23,42,0.4);
+        }
+
         .fullscreen-layer {
             position: fixed;
             top: 0;
@@ -353,6 +539,195 @@
         }
 
         /* ============================================================
+           检索
+           字段：Category / Sub-category / Term / Definition /
+                 Clarification / References
+           匹配：忽略大小写、连字符、变音符与 & ；-ise 与 -ize、
+                 单复数视为同一形式；全无结果时再放宽一个字符的拼写偏差
+           ============================================================ */
+        const SEARCH_FIELDS = [
+          { key: "category",      label: "Category" },
+          { key: "subcategory",   label: "Sub-category" },
+          { key: "term",          label: "Term" },
+          { key: "definition",    label: "Definition" },
+          { key: "clarification", label: "Clarification" },
+          { key: "references",    label: "References" }
+        ];
+
+        const DEFAULT_FIELDS = {
+          category: true, subcategory: true, term: true,
+          definition: true, clarification: false, references: false
+        };
+
+        const FIELD_WEIGHT = {
+          category: 0, subcategory: 1, term: 2,
+          definition: 3, clarification: 4, references: 5
+        };
+
+        function stemToken(token) {
+          let t = token;
+          t = t.replace(/isation$/, "ization")
+               .replace(/ising$/, "izing")
+               .replace(/ised$/, "ized")
+               .replace(/ise$/, "ize")
+               .replace(/yse$/, "yze");
+          if (t.length > 3 && t.endsWith("s") && !t.endsWith("ss")) t = t.slice(0, -1);
+          return t;
+        }
+
+        function splitWords(value) {
+          return String(value || "")
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .replace(/&/g, " and ")
+            .replace(/[^a-z0-9]+/g, " ")
+            .trim()
+            .split(" ")
+            .filter(Boolean);
+        }
+
+        function normaliseForSearch(value) {
+          return " " + splitWords(value).map(stemToken).join(" ") + " ";
+        }
+
+        /* 编辑距离是否不超过 1 */
+        function withinOneEdit(a, b) {
+          if (a === b) return true;
+          const la = a.length, lb = b.length;
+          if (Math.abs(la - lb) > 1) return false;
+          let i = 0, j = 0, edits = 0;
+          while (i < la && j < lb) {
+            if (a[i] === b[j]) { i++; j++; continue; }
+            if (++edits > 1) return false;
+            if (la > lb) i++;
+            else if (lb > la) j++;
+            else { i++; j++; }
+          }
+          return true;
+        }
+
+        function buildSearchIndex(flatCategories) {
+          const entries = [];
+          const add = (entry) => {
+            if (!entry.text) return;
+            entry.norm = normaliseForSearch(entry.text);
+            entry.id = entries.length;
+            entries.push(entry);
+          };
+
+          flatCategories.forEach((c) => {
+            add({ field: "category", level: "Category", text: c.name, ci: c.ci, subIdx: null, term: null, catName: c.name, subName: null, color: c.color });
+
+            c.subs.forEach((s, si) => {
+              add({ field: "subcategory", level: "Sub-category", text: s.label, ci: c.ci, subIdx: si, term: null, catName: c.name, subName: s.label, color: c.color });
+
+              s.items.forEach((it) => {
+                const base = { ci: c.ci, subIdx: si, term: it.term, catName: c.name, subName: s.label, color: c.color };
+                add(Object.assign({ field: "term", level: "Term", text: it.term }, base));
+
+                (it.subterms || []).forEach((st) => {
+                  add(Object.assign({ field: "term", level: "Subterm", text: st.en }, base));
+                });
+
+                (it.processingUnits || []).forEach((pu) => {
+                  if (pu.name && pu.name !== it.term) {
+                    add(Object.assign({ field: "term", level: "Processing Unit", text: pu.name }, base));
+                  }
+                  add(Object.assign({ field: "definition", level: "Definition", text: pu.whatItIs }, base));
+                  const clarification = [pu.whatItIsNot, pu.howItIsUsed, pu.howItIsStudied].filter(Boolean).join("\n");
+                  add(Object.assign({ field: "clarification", level: "Clarification", text: clarification }, base));
+                  add(Object.assign({ field: "references", level: "References", text: pu.references }, base));
+                });
+              });
+            });
+          });
+
+          return entries;
+        }
+
+        /* 打分：越小越靠前 */
+        function scoreEntry(entry, phrase) {
+          const norm = entry.norm;
+          let quality = 3;
+          if (norm === phrase + " ") quality = 0;
+          else if (norm.indexOf(phrase) === 0) quality = 1;
+          else if (norm.indexOf(phrase) !== -1) quality = 2;
+          return quality * 10 + (FIELD_WEIGHT[entry.field] || 0) + Math.min(4, entry.text.length / 400);
+        }
+
+        function runSearch(index, rawQuery, fields, limit) {
+          const stems = splitWords(rawQuery).map(stemToken);
+          if (!stems.length) return [];
+
+          const wanted = index.filter(e => fields[e.field]);
+          const phrase = " " + stems.join(" ");
+
+          /* 一，整串相邻匹配，例如 co-design 只命中 Co-Design 一类 */
+          let hits = wanted.filter(e => e.norm.indexOf(phrase) !== -1);
+
+          /* 二，退而求其次，各词分散出现即可，词首对齐以免 co 命中 concept */
+          if (!hits.length) {
+            hits = wanted.filter(e => stems.every(t => e.norm.indexOf(" " + t) !== -1));
+          }
+
+          /* 三，仍无结果时放宽一个字符的拼写偏差 */
+          if (!hits.length) {
+            hits = wanted.filter((entry) => {
+              const words = entry.norm.trim().split(" ");
+              return stems.every(t => words.some(w => withinOneEdit(w, t)));
+            });
+          }
+
+          hits.sort((a, b) => scoreEntry(a, phrase) - scoreEntry(b, phrase) || a.id - b.id);
+          return limit ? hits.slice(0, limit) : hits;
+        }
+
+        /* 把命中的关键词标出来，并在长文本中截取上下文 */
+        function highlightParts(text, words, contextLength) {
+          const source = String(text || "");
+          const lower = source.toLowerCase();
+          const ranges = [];
+          words.forEach((w) => {
+            if (!w) return;
+            let i = lower.indexOf(w);
+            while (i !== -1) {
+              ranges.push([i, i + w.length]);
+              i = lower.indexOf(w, i + w.length);
+            }
+          });
+          ranges.sort((a, b) => a[0] - b[0]);
+
+          const merged = [];
+          ranges.forEach((r) => {
+            const last = merged[merged.length - 1];
+            if (last && r[0] <= last[1]) last[1] = Math.max(last[1], r[1]);
+            else merged.push(r.slice());
+          });
+
+          let start = 0, end = source.length, prefix = "", suffix = "";
+          if (contextLength && source.length > contextLength) {
+            const anchor = merged.length ? merged[0][0] : 0;
+            start = Math.max(0, anchor - Math.floor(contextLength / 3));
+            end = Math.min(source.length, start + contextLength);
+            if (start > 0) prefix = "… ";
+            if (end < source.length) suffix = " …";
+          }
+
+          const nodes = [];
+          let cursor = start;
+          merged.forEach(([a, b], k) => {
+            if (b <= start || a >= end) return;
+            const from = Math.max(a, start), to = Math.min(b, end);
+            if (from > cursor) nodes.push(source.slice(cursor, from));
+            nodes.push(<mark key={k} className="search-mark">{source.slice(from, to)}</mark>);
+            cursor = to;
+          });
+          if (cursor < end) nodes.push(source.slice(cursor, end));
+
+          return [prefix, ...nodes, suffix];
+        }
+
+        /* ============================================================
            buildStructure — 单层结构：Category 按原表顺序平铺
            颜色仍按 Group 依次取自 31 色渐变色板
            ============================================================ */
@@ -668,17 +1043,190 @@
 
 
         /* ============================================================
+           顶部检索栏：输入即联想，回车或点击放大镜出结果
+           ============================================================ */
+        const SearchBar = ({
+          query, setQuery, fields, setFields,
+          suggestions, onPick, onSubmit, onClear, hasResults, resultCount
+        }) => {
+          const [showFields, setShowFields] = useState(false);
+          const [showSuggest, setShowSuggest] = useState(false);
+          const [cursor, setCursor] = useState(-1);
+
+          const toggleField = (key) => {
+            setFields(prev => Object.assign({}, prev, { [key]: !prev[key] }));
+          };
+
+          const handleKey = (e) => {
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setShowSuggest(true);
+              setCursor(c => Math.min(c + 1, suggestions.length - 1));
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setCursor(c => Math.max(c - 1, -1));
+            } else if (e.key === "Enter") {
+              if (cursor >= 0 && suggestions[cursor]) {
+                onPick(suggestions[cursor]);
+                setShowSuggest(false);
+              } else {
+                onSubmit();
+                setShowSuggest(false);
+              }
+            } else if (e.key === "Escape") {
+              setShowSuggest(false);
+              setShowFields(false);
+            }
+          };
+
+          const activeFieldCount = SEARCH_FIELDS.filter(f => fields[f.key]).length;
+
+          return (
+            <div className="search-bar-wrapper">
+              <div className="search-input-row">
+                <span className="search-icon">⌕</span>
+                <input
+                  type="text"
+                  value={query}
+                  placeholder="Search the map"
+                  className="search-input"
+                  onChange={(e) => { setQuery(e.target.value); setShowSuggest(true); setCursor(-1); }}
+                  onFocus={() => setShowSuggest(true)}
+                  onKeyDown={handleKey}
+                />
+                {query && (
+                  <button className="search-clear" onClick={onClear} aria-label="clear search">×</button>
+                )}
+                <button
+                  className="search-fields-toggle"
+                  onClick={() => { setShowFields(!showFields); setShowSuggest(false); }}
+                >
+                  Fields {activeFieldCount}/{SEARCH_FIELDS.length}
+                </button>
+                <button className="search-go" onClick={() => { onSubmit(); setShowSuggest(false); }}>
+                  Search
+                </button>
+              </div>
+
+              {hasResults && (
+                <div className="search-count">{resultCount} matches</div>
+              )}
+
+              {showFields && (
+                <div className="search-popover">
+                  {SEARCH_FIELDS.map(f => (
+                    <label key={f.key} className="search-field-row">
+                      <input type="checkbox" checked={!!fields[f.key]} onChange={() => toggleField(f.key)} />
+                      <span>{f.label}</span>
+                    </label>
+                  ))}
+                  <div className="search-field-note">Term covers subterms and processing unit names.</div>
+                </div>
+              )}
+
+              {showSuggest && query && suggestions.length > 0 && (
+                <div className="search-popover search-suggest">
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={s.id}
+                      className={`search-suggest-row ${i === cursor ? 'is-active' : ''}`}
+                      onMouseDown={(e) => { e.preventDefault(); onPick(s); setShowSuggest(false); }}
+                    >
+                      <span className="search-suggest-dot" style={{ background: s.color }} />
+                      <span className="search-suggest-text">
+                        {highlightParts(s.text, splitWords(query), 0)}
+                      </span>
+                      <span className="search-suggest-level">{s.level}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        };
+
+        /* ============================================================
+           结果面板：按字段分组，点击任一条目直接定位
+           ============================================================ */
+        const SearchResultsPanel = ({ query, results, onPick, onClose }) => {
+          const words = splitWords(query);
+          const grouped = SEARCH_FIELDS
+            .map(f => ({ field: f, rows: results.filter(r => r.field === f.key) }))
+            .filter(g => g.rows.length);
+
+          return (
+            <div className="fullscreen-layer z-40 bg-slate-900/50 backdrop-blur-sm flex items-start justify-center"
+                 onClick={onClose}>
+              <div className="search-results" onClick={(e) => e.stopPropagation()}>
+                <div className="search-results-head">
+                  <div>
+                    <span className="font-bold">{results.length}</span> matches for
+                    <span className="font-bold"> “{query}”</span>
+                  </div>
+                  <button className="search-results-close" onClick={onClose} aria-label="close results">×</button>
+                </div>
+
+                <div className="search-results-body">
+                  {grouped.length === 0 && (
+                    <div className="search-empty">No match. Try fewer words, or switch on more fields.</div>
+                  )}
+
+                  {grouped.map(g => (
+                    <div key={g.field.key} className="search-group">
+                      <div className="search-group-head">{g.field.label} · {g.rows.length}</div>
+                      {g.rows.slice(0, 60).map(r => (
+                        <button key={r.id} className="search-row" onClick={() => onPick(r)}>
+                          <span className="search-row-dot" style={{ background: r.color }} />
+                          <span className="search-row-main">
+                            <span className="search-row-path">
+                              {r.catName}{r.subName ? ' › ' + r.subName : ''}{r.term && r.level !== 'Term' ? ' › ' + r.term : ''}
+                            </span>
+                            <span className="search-row-text">
+                              {highlightParts(r.text, words, r.field === 'category' || r.field === 'subcategory' || r.field === 'term' ? 0 : 220)}
+                            </span>
+                          </span>
+                          <span className="search-row-level">{r.level}</span>
+                        </button>
+                      ))}
+                      {g.rows.length > 60 && (
+                        <div className="search-more">{g.rows.length - 60} more not shown</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        /* ============================================================
            TermItem — 面板中每个 Term 的折叠/展开容器
            默认折叠，点击小三角展开 subterms + PU 内容
            Term 与 Subterm 均为「英文 + 中文」显示
            ============================================================ */
-        const TermItem = ({ it, panelTextColor, borderColor }) => {
-          const [open, setOpen] = useState(false);
+        const TermItem = ({ it, panelTextColor, borderColor, isTarget }) => {
+          const [open, setOpen] = useState(!!isTarget);
+          const nodeRef = React.useRef(null);
+
+          useEffect(() => {
+            if (isTarget) {
+              setOpen(true);
+              if (nodeRef.current && nodeRef.current.scrollIntoView) {
+                nodeRef.current.scrollIntoView({ block: "start", behavior: "smooth" });
+              }
+            }
+          }, [isTarget]);
 
           return (
             <div
+              ref={nodeRef}
               className="mb-4 pb-3"
-              style={{ borderBottom: `1px solid ${borderColor}` }}
+              style={{
+                borderBottom: `1px solid ${borderColor}`,
+                background: isTarget ? hexToRgba(panelTextColor, 0.07) : "transparent",
+                borderRadius: isTarget ? "8px" : "0",
+                padding: isTarget ? "6px 8px 8px 8px" : undefined
+              }}
             >
               {it.term && (
                 <div
@@ -755,6 +1303,11 @@
           const [isContactOpen, setIsContactOpen] = useState(false);
           const [vh, setVh] = useState(800);
           const [scale, setScale] = useState(1);
+          const [query, setQuery] = useState("");
+          const [fields, setFields] = useState(DEFAULT_FIELDS);
+          const [submittedQuery, setSubmittedQuery] = useState("");
+          const [isResultsOpen, setIsResultsOpen] = useState(false);
+          const [targetTerm, setTargetTerm] = useState(null);
           const [isPanelClosing, setIsPanelClosing] = useState(false);
           const [isDetailLayoutActive, setIsDetailLayoutActive] = useState(false);
 
@@ -843,8 +1396,52 @@
             };
           }, [active, isContactOpen]);
 
+          const searchIndex = useMemo(() => buildSearchIndex(flatCategories), [flatCategories]);
+
+          const suggestions = useMemo(() => {
+            if (!query.trim()) return [];
+            const nameFields = { category: fields.category, subcategory: fields.subcategory, term: fields.term };
+            return runSearch(searchIndex, query, nameFields, 8);
+          }, [searchIndex, query, fields.category, fields.subcategory, fields.term]);
+
+          const results = useMemo(() => {
+            if (!submittedQuery.trim()) return [];
+            return runSearch(searchIndex, submittedQuery, fields, 0);
+          }, [searchIndex, submittedQuery, fields]);
+
+          const hitsByCategory = useMemo(() => {
+            const counts = {};
+            results.forEach(r => { counts[r.ci] = (counts[r.ci] || 0) + 1; });
+            return counts;
+          }, [results]);
+
+          const isFiltering = submittedQuery.trim().length > 0;
+
+          const jumpTo = (entry) => {
+            setActive({ ci: entry.ci });
+            setDetailIdx(entry.subIdx === null || entry.subIdx === undefined ? null : entry.subIdx);
+            setTargetTerm(entry.term || null);
+            setIsPanelClosing(false);
+            setIsDetailLayoutActive(entry.subIdx !== null && entry.subIdx !== undefined);
+            setIsResultsOpen(false);
+          };
+
+          const submitSearch = () => {
+            const q = query.trim();
+            setSubmittedQuery(q);
+            setIsResultsOpen(!!q);
+          };
+
+          const clearSearch = () => {
+            setQuery("");
+            setSubmittedQuery("");
+            setIsResultsOpen(false);
+            setTargetTerm(null);
+          };
+
           const openCategory = (ci) => {
             setActive({ ci });
+            setTargetTerm(null);
             setDetailIdx(null);
             setIsPanelClosing(false);
             setIsDetailLayoutActive(false);
@@ -878,7 +1475,10 @@
           useEffect(() => {
             const handleKey = (e) => {
               if (e.key === 'Escape') {
-                if (active && detailIdx !== null) {
+                if (isResultsOpen) {
+                  e.preventDefault();
+                  setIsResultsOpen(false);
+                } else if (active && detailIdx !== null) {
                   e.preventDefault();
                   closeTermPanelWithAnimation();
                 } else if (active) {
@@ -892,17 +1492,22 @@
             };
             window.addEventListener('keydown', handleKey);
             return () => window.removeEventListener('keydown', handleKey);
-          }, [active, detailIdx, isContactOpen]);
+          }, [active, detailIdx, isContactOpen, isResultsOpen]);
 
           const CategoryCard = ({ c, ci }) => {
               const textColor = getTextColorForBackground(c.color);
+              const hitCount = hitsByCategory[c.ci] || 0;
+              const dimmed = isFiltering && hitCount === 0;
 
               return (
                 <button
                     onClick={() => openCategory(ci)}
-                    className="w-full text-left"
+                    className={`w-full text-left relative ${dimmed ? 'card-dimmed' : ''}`}
                     aria-label={`open ${c.name} overlay`}
                 >
+                    {isFiltering && hitCount > 0 && (
+                        <span className="card-hit-badge">{hitCount}</span>
+                    )}
                     <div
                         className="category-card-base rounded-xl px-4 py-1.5 shadow-lg ring-1 ring-black/10 transition hover:shadow-2xl focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-white flex items-center justify-center text-center"
                         style={{ background: c.color, color: textColor }}
@@ -1046,6 +1651,19 @@
                   <h1 className="text-xl font-extrabold text-slate-900 mb-2">
                     Mega-Map of Design
                   </h1>
+
+                  <SearchBar
+                    query={query}
+                    setQuery={setQuery}
+                    fields={fields}
+                    setFields={setFields}
+                    suggestions={suggestions}
+                    onPick={jumpTo}
+                    onSubmit={submitSearch}
+                    onClear={clearSearch}
+                    hasResults={isFiltering}
+                    resultCount={results.length}
+                  />
                 </div>
               </div>
 
@@ -1053,6 +1671,15 @@
                   isOpen={isContactOpen}
                   onClose={() => setIsContactOpen(false)}
               />
+
+              {isResultsOpen && (
+                <SearchResultsPanel
+                  query={submittedQuery}
+                  results={results}
+                  onPick={jumpTo}
+                  onClose={() => setIsResultsOpen(false)}
+                />
+              )}
 
               {renderPage1()}
 
@@ -1243,6 +1870,7 @@
                                               it={it}
                                               panelTextColor={panelTextColor}
                                               borderColor={hexToRgba(panelTextColor, 0.3)}
+                                              isTarget={!!targetTerm && it.term === targetTerm}
                                             />
                                           ))
                                         ) : (
