@@ -15,7 +15,7 @@
         #root { min-height: 100vh; }
         .layer-divider { border-top: 1px dashed #d1d5db; }
         .category-card-base {
-            height: 124px;
+            height: 110px;
             width: 260px;
             flex-shrink: 0;
             position: relative;
@@ -660,7 +660,7 @@
                     <Bi
                       en={it.term}
                       zh={it.termZh}
-                      enClass="text-base font-bold leading-snug"
+                      enClass="text-lg font-bold leading-snug"
                       zhClass="text-sm font-semibold leading-snug opacity-90"
                     />
                   </div>
@@ -688,7 +688,7 @@
                             <Bi
                               en={sub.en}
                               zh={sub.zh}
-                              enClass="text-sm leading-snug"
+                              enClass="text-base leading-snug"
                               zhClass="text-xs leading-snug opacity-85"
                             />
                           </span>
@@ -875,7 +875,7 @@
                             <Bi
                                 en={c.name}
                                 zh={c.nameZh}
-                                enClass="text-sm font-semibold leading-snug break-words line-clamp-3"
+                                enClass="text-lg font-semibold leading-snug break-words line-clamp-3"
                                 zhClass="text-[16px] font-medium leading-snug break-words line-clamp-2 opacity-90 mt-1"
                             />
                         </div>
@@ -1084,11 +1084,11 @@
                                     e.stopPropagation();
                                   }}
                                 >
-                                  <div className="max-w-[16rem]">
+                                  <div className="max-w-[14rem]">
                                     <Bi
                                       en={C.name}
                                       zh={C.nameZh}
-                                      enClass="text-lg font-semibold leading-tight break-words"
+                                      enClass="text-xl font-semibold leading-tight break-words"
                                       zhClass="text-[19px] font-medium leading-tight break-words opacity-90 mt-1"
                                     />
                                   </div>
@@ -1145,7 +1145,7 @@
                                         <Bi
                                           en={sub?.label || "Subcategory"}
                                           zh={sub?.labelZh}
-                                          enClass="text-sm font-semibold leading-tight break-words"
+                                          enClass="text-base font-medium leading-tight break-words"
                                           zhClass="text-[15px] font-medium leading-tight break-words opacity-90 mt-0.5"
                                         />
                                       </div>
@@ -1191,7 +1191,7 @@
                                             <Bi
                                                 en={s.label || 'Subcategory Detail'}
                                                 zh={s.labelZh}
-                                                enClass="text-lg font-bold leading-snug"
+                                                enClass="text-xl font-bold leading-snug"
                                                 zhClass="text-sm font-semibold leading-snug opacity-90"
                                             />
                                         </div>
