@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,7 +15,7 @@
         #root { min-height: 100vh; }
         .layer-divider { border-top: 1px dashed #d1d5db; }
         .category-card-base {
-            height: 110px;
+            height: 124px;
             width: 260px;
             flex-shrink: 0;
             position: relative;
@@ -152,15 +152,7 @@
 
     <script type="text/babel">
         const { useMemo, useState, useEffect, useCallback } = React;
-        const XLSX = window.XLSX;
 
-// 依次尝试这些地址来加载 XLSX
-const DATA_URLS = [
-  "/Mega-Map-of-Design/data/mmd.xlsx",
-  "data/mmd.xlsx",
-  "./data/mmd.xlsx",
-  "mmd.xlsx",
-];
 
         const CLASSIC_GRADIENT_PALETTE_31 = [
             "#deebf7", "#bdd7ee", "#7eb0de", "#4e93d2", "#2867A0", "#2f5597",
@@ -218,189 +210,193 @@ const DATA_URLS = [
         const LIST_CATEGORY_HEIGHT = 110;
         const LIST_CATEGORY_ASPECT_RATIO = 2.4;
 
-      function parseXLSX(arrayBuffer) {
-    if (!XLSX) return [];
-    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    const data = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-    return data;
-}
+        /* ============================================================
+           数据层
+           页面启动时读取同目录下的 mmd.xlsx，因此改表即改内容。
+           中文列（如「Category（中文）」）存在时按中英双语显示；
+           缺失时自动退回英文，页面不会报错。
+           更新 xlsx 后如需强制刷新缓存，把 DATA_VERSION 加一即可。
+           ============================================================ */
+        const DATA_FILE = "mmd.xlsx";
+        const DATA_VERSION = "1";
 
+        /* 表头归一化：忽略大小写、空格、下划线、BOM 与全半角括号 */
+        function normaliseHeader(name) {
+          return String(name || "")
+            .replace(/^\uFEFF/, "")
+            .replace(/[\s_（）()]/g, "")
+            .toLowerCase();
+        }
 
-        function normalizeRows(rawRows) {
+        const FIELD_BY_HEADER = {
+          "group": "Group",
+          "category": "Category",
+          "subcategory": "Subcategory",
+          "term": "Term",
+          "subterm": "Subterm",
+          "processingunit": "ProcessingUnit",
+          "whatitis": "WhatItIs",
+          "whatitisnot": "WhatItIsNot",
+          "howitisused": "HowItIsUsed",
+          "howitisstudied": "HowItIsStudied",
+          "references": "References"
+        };
+
+        /* 需要向下填充的列（原表只在区块首行填值） */
+        const CARRY_FIELDS = ["Group", "Category", "CategoryZh", "Subcategory", "SubcategoryZh", "Term", "TermZh"];
+
+        /* 把一行原始数据映射为统一字段名，中文列加 Zh 后缀 */
+        function mapRow(raw) {
+          const row = {};
+          Object.keys(raw).forEach(key => {
+            const norm = normaliseHeader(key);
+            const isZh = norm.indexOf("中文") !== -1;
+            const base = FIELD_BY_HEADER[norm.replace("中文", "")];
+            if (!base) return;
+            const value = raw[key] === undefined || raw[key] === null ? "" : String(raw[key]).trim();
+            row[isZh ? base + "Zh" : base] = value;
+          });
+          return row;
+        }
+
+        function normaliseRows(rawRows) {
+          const carried = {};
           const rows = [];
-          let lastLayer = "", lastGroup = "", lastCategory = "";
-          let lastSubcategory = "", lastTerm = "";
 
-         const getCellValue = (r, key) => {
-  const normalizeHeader = (s) =>
-    String(s || "")
-      .replace(/^\uFEFF/, "")
-      .toLowerCase()
-      .replace(/[\s_\-]/g, "");
+          rawRows.forEach(raw => {
+            const row = mapRow(raw);
 
-  const target = normalizeHeader(key);
-
-  for (const header in r) {
-    if (header === null) continue;
-    const normalizedHeader = normalizeHeader(header);
-
-    if (normalizedHeader === target) {
-      const value = r[header];
-      if (value === null || value === undefined || value === "") return "";
-      let strValue = String(value);
-      strValue = strValue.trim();
-      strValue = strValue.replace(/[\u00A0\u200B\t\r\n]+/g, " ").trim();
-      return strValue;
-    }
-  }
-  return "";
-};
-
-
-
-          rawRows.forEach(r => {
-            const Layer = getCellValue(r, "Layer");
-            const Group = getCellValue(r, "Group");
-            const Category = getCellValue(r, "Category");
-            const Subcategory = getCellValue(r, "Subcategory");
-            const Term = getCellValue(r, "Term");
-            let Subterm = getCellValue(r, "Subterm");
-            const ProcessingUnit = getCellValue(r, "Processing Unit");
-            const WhatItIs = getCellValue(r, "What it is");
-            const WhatItIsNot = getCellValue(r, "What it is not");
-            const HowItIsUsed = getCellValue(r, "How it is used");
-            const HowItIsStudied = getCellValue(r, "How it is studied");
-            const References = getCellValue(r, "References");
-
-            if (Layer) lastLayer = Layer;
-            if (Group) lastGroup = Group;
-            if (Category) lastCategory = Category;
-            if (Subcategory) lastSubcategory = Subcategory;
-            if (Term) lastTerm = Term;
-
-            // 只有破折号的 Subterm 视为"空"
-            if (Subterm) {
-              const onlyDashes = Subterm.replace(/[\s\u00A0\u200B]+/g, '');
-              if (/^[-—–]*$/.test(onlyDashes)) {
-                Subterm = "";
+            CARRY_FIELDS.forEach(field => {
+              const value = row[field] || "";
+              if (value === "") {
+                row[field] = carried[field] || "";
+              } else {
+                carried[field] = value;
               }
-            }
-
-            if (!lastLayer || !lastGroup || !lastCategory || !lastSubcategory || !lastTerm) {
-                console.warn("Skipping row due to missing context.");
-                return;
-            }
-
-            rows.push({
-              Layer: lastLayer,
-              Group: lastGroup,
-              Category: lastCategory,
-              Subcategory: lastSubcategory,
-              Term: lastTerm,
-              Subterm,
-              ProcessingUnit,
-              WhatItIs,
-              WhatItIsNot,
-              HowItIsUsed,
-              HowItIsStudied,
-              References
             });
+
+            // 只有破折号的 Subterm 视为空
+            const onlyDashes = String(row.Subterm || "").replace(/[\s\u00A0\u200B]+/g, "");
+            if (/^[-—–]*$/.test(onlyDashes)) {
+              row.Subterm = "";
+              row.SubtermZh = "";
+            }
+
+            // 四个描述列优先取中文，缺中文时退回英文
+            ["WhatItIs", "WhatItIsNot", "HowItIsUsed", "HowItIsStudied"].forEach(field => {
+              row[field] = row[field + "Zh"] || row[field] || "";
+            });
+            row.References = row.References || "";
+
+            if (!row.Group || !row.Category || !row.Subcategory || !row.Term) return;
+            rows.push(row);
           });
 
           return rows;
         }
 
+        function parseWorkbook(arrayBuffer) {
+          const XLSX = window.XLSX;
+          if (!XLSX) throw new Error("SheetJS not loaded");
+          const workbook = XLSX.read(arrayBuffer, { type: "array" });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          return normaliseRows(XLSX.utils.sheet_to_json(sheet, { defval: "" }));
+        }
+
+        /* 把「英文；英文」与「中文；中文」按序配对；数量不一致时整体配对 */
+        function pairBilingualList(en, zh) {
+          const splitList = (s) => String(s || "").split(/[;；]/).map(x => x.trim()).filter(Boolean);
+          const enList = splitList(en);
+          const zhList = splitList(zh);
+          if (!enList.length) return [];
+          if (!zhList.length) return enList.map(e => ({ en: e, zh: "" }));
+          if (zhList.length === enList.length) {
+            return enList.map((e, i) => ({ en: e, zh: zhList[i] }));
+          }
+          return [{ en: String(en || "").trim(), zh: String(zh || "").trim() }];
+        }
+
+        /* ============================================================
+           buildStructure — 单层结构：Category 按原表顺序平铺
+           颜色仍按 Group 依次取自 31 色渐变色板
+           ============================================================ */
         function buildStructure(rows) {
-          const layers = [];
-          let currentLayer = null;
+          const flatCategories = [];
           let currentGroup = "";
           let colorIndex = -1;
-
-          const flatCategories = [];
-          let flatIndex = 0;
+          let currentColor = CLASSIC_GRADIENT_PALETTE_31[0];
 
           rows.forEach((row, idx) => {
-            const sub = row.Subcategory;
-            const term = row.Term;
-            const subterm = row.Subterm;
-
-            if (!currentLayer || row.Layer !== currentLayer.layer) {
-              currentLayer = { layer: row.Layer || `Layer ${layers.length + 1}`, groups: [] };
-              layers.push(currentLayer);
-              currentGroup = "";
-            }
-
             if (row.Group !== currentGroup) {
               currentGroup = row.Group;
               colorIndex = (colorIndex + 1) % CLASSIC_GRADIENT_PALETTE_31.length;
-              currentLayer.groups.push({ group: currentGroup, color: CLASSIC_GRADIENT_PALETTE_31[colorIndex], categories: [] });
+              currentColor = CLASSIC_GRADIENT_PALETTE_31[colorIndex];
             }
 
-            const g = currentLayer.groups[currentLayer.groups.length - 1];
-            const categoryName = row.Category;
-            if (!categoryName) return;
-
-            let cat = g.categories.find((c) => c.name === categoryName);
+            let cat = flatCategories.find(c => c.name === row.Category && c.group === currentGroup);
             if (!cat) {
-              const catKey = `${idx}-${categoryName}`;
-              cat = { key: catKey, name: categoryName, color: g.color, subs: [], li: layers.length - 1, gi: currentLayer.groups.length - 1, ci: flatIndex };
-              g.categories.push(cat);
-
-              flatCategories.push({ ...cat, layer: currentLayer.layer, group: currentGroup });
-              flatIndex++;
+              cat = {
+                key: `${idx}-${row.Category}`,
+                name: row.Category,
+                nameZh: row.CategoryZh,
+                color: currentColor,
+                group: currentGroup,
+                subs: [],
+                ci: flatCategories.length
+              };
+              flatCategories.push(cat);
             }
 
-            if (sub) {
-              let sc = cat.subs.find((s) => s.label === sub);
-              if (!sc) { sc = { label: sub, color: cat.color, items: [] }; cat.subs.push(sc); }
+            let sc = cat.subs.find(s => s.label === row.Subcategory);
+            if (!sc) {
+              sc = { label: row.Subcategory, labelZh: row.SubcategoryZh, color: cat.color, items: [] };
+              cat.subs.push(sc);
+            }
 
-              if (term) {
-                let found = sc.items.find((it) => it.term === term);
-                if (!found) { found = { term, subterms: [], processingUnits: [] }; sc.items.push(found); }
+            let item = sc.items.find(it => it.term === row.Term);
+            if (!item) {
+              item = { term: row.Term, termZh: row.TermZh, subterms: [], processingUnits: [] };
+              sc.items.push(item);
+            }
 
-                if (subterm && !found.subterms.includes(subterm)) {
-                  found.subterms.push(subterm);
-                }
+            if (row.Subterm) {
+              pairBilingualList(row.Subterm, row.SubtermZh).forEach(pair => {
+                if (!item.subterms.some(s => s.en === pair.en)) item.subterms.push(pair);
+              });
+            }
 
-                // 添加 Processing Unit 数据
-                if (row.ProcessingUnit) {
-                  const existingPU = found.processingUnits.find(pu => pu.name === row.ProcessingUnit);
-                  if (!existingPU) {
-                    found.processingUnits.push({
-                      name: row.ProcessingUnit,
-                      whatItIs: row.WhatItIs || '',
-                      whatItIsNot: row.WhatItIsNot || '',
-                      howItIsUsed: row.HowItIsUsed || '',
-                      howItIsStudied: row.HowItIsStudied || '',
-                      references: row.References || ''
-                    });
-                  }
-                }
-              }
+            if (row.ProcessingUnit && !item.processingUnits.some(pu => pu.name === row.ProcessingUnit)) {
+              item.processingUnits.push({
+                name: row.ProcessingUnit,
+                nameZh: row.ProcessingUnitZh,
+                whatItIs: row.WhatItIs || '',
+                whatItIsNot: row.WhatItIsNot || '',
+                howItIsUsed: row.HowItIsUsed || '',
+                howItIsStudied: row.HowItIsStudied || '',
+                references: row.References || ''
+              });
             }
           });
 
-          return { layers, flatCategories };
+          return { flatCategories };
         }
 
-       function useParsedData(xlsxData) {
-  return useMemo(() => {
-    if (!xlsxData || !xlsxData.length) {
-      return { layers: [], flatCategories: [], count: 0 };
-    }
+        function useParsedData(rows) {
+          return useMemo(() => {
+            if (!rows || !rows.length) return { flatCategories: [], count: 0 };
+            const { flatCategories } = buildStructure(rows);
+            console.log("Parsed categories:", flatCategories.length);
+            return { flatCategories, count: flatCategories.length };
+          }, [rows]);
+        }
 
-    const normalized = normalizeRows(xlsxData);
-    console.log("Normalized rows length:", normalized.length);
-
-    const { layers, flatCategories } = buildStructure(normalized);
-    const catCount = flatCategories.length;
-    console.log("Parsed categories:", catCount);
-
-    return { layers, flatCategories, count: catCount };
-  }, [xlsxData]);
-}
+        /* 双语显示：英文在上，中文在下 */
+        const Bi = ({ en, zh, enClass = "", zhClass = "" }) => (
+          <React.Fragment>
+            <div className={enClass}>{en}</div>
+            {zh && zh !== en ? <div className={zhClass}>{zh}</div> : null}
+          </React.Fragment>
+        );
 
 
         function getFixedPositionsRect(centerW, centerH) {
@@ -511,20 +507,22 @@ const DATA_URLS = [
         /* ============================================================
            ProcessingUnitBlock — 渲染单个 Processing Unit 的内容
            singlePU: 是否只有一个 PU（如果是，不显示 PU 名称标题）
+           Clarification 按钮：What it is not / How it is used / How it is studied
+           References 按钮：References
            ============================================================ */
         const ProcessingUnitBlock = ({ pu, singlePU, textColor }) => {
-          const [expanded, setExpanded] = useState(false);
+          const [showClarification, setShowClarification] = useState(false);
+          const [showReferences, setShowReferences] = useState(false);
 
-          const hasExtra = pu.whatItIsNot || pu.howItIsUsed || pu.howItIsStudied || pu.references;
+          const hasClarification = pu.whatItIsNot || pu.howItIsUsed || pu.howItIsStudied;
+          const hasReferences = !!pu.references;
 
           // 渲染多行文本：按换行符 或 bullet 符号（•）拆行
           const renderText = (text) => {
             if (!text) return null;
-            // 先按真实换行拆分，再对每段按 • 做二次拆分
             const raw = text.split(/\r?\n/);
             const lines = [];
             raw.forEach(seg => {
-              // 如果一段里有多个 • 但没换行（xlsx 常见），按 • 拆开
               const parts = seg.split(/(?=•)/);
               parts.forEach(p => {
                 const trimmed = p.trim();
@@ -532,7 +530,6 @@ const DATA_URLS = [
               });
             });
             return lines.map((line, i) => {
-              // 以 • 开头的行用 hanging indent 布局
               if (line.startsWith('•')) {
                 return (
                   <div key={i} className="mb-1.5 leading-relaxed flex">
@@ -547,41 +544,59 @@ const DATA_URLS = [
             });
           };
 
+          const toggleStyle = {
+            background: hexToRgba(textColor, 0.12),
+            color: textColor,
+          };
+
           return (
             <div className="mt-2">
-              {/* 如果有多个 PU，显示 PU 名称作为子标题 */}
+              {/* 如果有多个 PU，显示 PU 名称作为子标题（英文 + 中文） */}
               {!singlePU && pu.name && (
-                <div className="text-base font-bold italic mb-1 mt-3 opacity-90"
+                <div className="mb-1 mt-3 opacity-90"
                      style={{ borderBottom: `1px solid ${hexToRgba(textColor, 0.2)}`, paddingBottom: '4px' }}>
-                  {pu.name}
+                  <Bi
+                    en={pu.name}
+                    zh={pu.nameZh}
+                    enClass="text-base font-bold italic leading-snug"
+                    zhClass="text-sm font-semibold leading-snug opacity-90"
+                  />
                 </div>
               )}
 
-              {/* What it is —— 始终显示，不带标题 */}
+              {/* What it is（中文）—— 始终显示，不带标题 */}
               {pu.whatItIs && (
                 <div className="text-sm leading-relaxed mt-1 opacity-90">
                   {renderText(pu.whatItIs)}
                 </div>
               )}
 
-              {/* More / Less 按钮 */}
-              {hasExtra && (
-                <div className="flex justify-end mt-1">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-                    className="text-xs font-semibold px-3 py-1 rounded-lg transition-all hover:opacity-80"
-                    style={{
-                      background: hexToRgba(textColor, 0.12),
-                      color: textColor,
-                    }}
-                  >
-                    {expanded ? 'Less' : 'More'}
-                  </button>
+              {/* Clarification / References 两个按钮 */}
+              {(hasClarification || hasReferences) && (
+                <div className="flex justify-end gap-2 mt-1">
+                  {hasClarification && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setShowClarification(!showClarification); }}
+                      className="text-xs font-semibold px-3 py-1 rounded-lg transition-all hover:opacity-80"
+                      style={toggleStyle}
+                    >
+                      {showClarification ? 'Clarification ▴' : 'Clarification ▾'}
+                    </button>
+                  )}
+                  {hasReferences && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setShowReferences(!showReferences); }}
+                      className="text-xs font-semibold px-3 py-1 rounded-lg transition-all hover:opacity-80"
+                      style={toggleStyle}
+                    >
+                      {showReferences ? 'References ▴' : 'References ▾'}
+                    </button>
+                  )}
                 </div>
               )}
 
-              {/* 展开区域 */}
-              <div className={`pu-expand-section ${expanded ? 'is-expanded' : ''}`}>
+              {/* Clarification 展开区域 */}
+              <div className={`pu-expand-section ${showClarification ? 'is-expanded' : ''}`}>
                 {pu.whatItIsNot && (
                   <div className="mt-3">
                     <div className="text-sm font-normal italic mb-1 opacity-80">What it is not</div>
@@ -600,6 +615,10 @@ const DATA_URLS = [
                     <div className="text-xs leading-relaxed opacity-90">{renderText(pu.howItIsStudied)}</div>
                   </div>
                 )}
+              </div>
+
+              {/* References 展开区域 */}
+              <div className={`pu-expand-section ${showReferences ? 'is-expanded' : ''}`}>
                 {pu.references && (
                   <div className="mt-3">
                     <div className="text-sm font-normal italic mb-1 opacity-80">References</div>
@@ -615,6 +634,7 @@ const DATA_URLS = [
         /* ============================================================
            TermItem — 面板中每个 Term 的折叠/展开容器
            默认折叠，点击小三角展开 subterms + PU 内容
+           Term 与 Subterm 均为「英文 + 中文」显示
            ============================================================ */
         const TermItem = ({ it, panelTextColor, borderColor }) => {
           const [open, setOpen] = useState(false);
@@ -629,8 +649,13 @@ const DATA_URLS = [
                   className="flex items-start justify-between cursor-pointer select-none"
                   onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
                 >
-                  <div className="text-lg font-bold mb-1 flex-1 pr-2">
-                    {it.term}
+                  <div className="mb-1 flex-1 pr-2">
+                    <Bi
+                      en={it.term}
+                      zh={it.termZh}
+                      enClass="text-base font-bold leading-snug"
+                      zhClass="text-sm font-semibold leading-snug opacity-90"
+                    />
                   </div>
                   <span
                     className="flex-shrink-0 mt-1.5 text-xs transition-transform duration-200"
@@ -648,11 +673,18 @@ const DATA_URLS = [
               {open && (
                 <div>
                   {it.subterms && it.subterms.length ? (
-                    <ul className="mt-2 text-base opacity-95 list-none space-y-1">
+                    <ul className="mt-2 opacity-95 list-none space-y-1.5">
                       {it.subterms.map((sub, j) => (
                         <li key={j} className="flex">
-                          <span className="mr-2 flex-shrink-0">–</span>
-                          <span>{sub}</span>
+                          <span className="mr-2 flex-shrink-0 text-sm">–</span>
+                          <span className="flex-1">
+                            <Bi
+                              en={sub.en}
+                              zh={sub.zh}
+                              enClass="text-sm leading-snug"
+                              zhClass="text-xs leading-snug opacity-85"
+                            />
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -678,44 +710,59 @@ const DATA_URLS = [
 
 
         function DesignMapPage() {
-          const [xlsxData, setXlsxData] = useState(null);
-          const { flatCategories, count } = useParsedData(xlsxData);
+          const [rows, setRows] = useState([]);
+          const [loadStatus, setLoadStatus] = useState("loading");
+          const { flatCategories, count } = useParsedData(rows);
           const [active, setActive] = useState(null);
           const [detailIdx, setDetailIdx] = useState(null);
           const [isContactOpen, setIsContactOpen] = useState(false);
           const [vh, setVh] = useState(800);
           const [isPanelClosing, setIsPanelClosing] = useState(false);
           const [isDetailLayoutActive, setIsDetailLayoutActive] = useState(false);
-          const [loadStatus, setLoadStatus] = useState("loading");
 
-          // 页面加载时自动拉取 XLSX（多地址 fallback）
-const DATA_VERSION = "2025-11-28-03";
+          /* 启动时读取同目录下的 mmd.xlsx */
+          useEffect(() => {
+            let cancelled = false;
+            const url = `${DATA_FILE}?v=${DATA_VERSION}`;
 
-useEffect(() => {
-  (async () => {
-    for (const url of DATA_URLS) {
-      const fullUrl = `${url}?v=${DATA_VERSION}`;
-      try {
-        console.log("Trying to load XLSX from:", fullUrl);
-        const res = await fetch(fullUrl);
-        if (!res.ok) continue;
-        const arrayBuffer = await res.arrayBuffer();
-        if (!arrayBuffer || arrayBuffer.byteLength === 0) continue;
-        console.log("Loaded XLSX from:", fullUrl);
-        const parsed = parseXLSX(arrayBuffer);
-        if (parsed && parsed.length > 0) {
-          setXlsxData(parsed);
-          setLoadStatus("ok");
-          return;
-        }
-      } catch (e) {
-        console.warn("Failed to load from", fullUrl, e);
-      }
-    }
-    console.error("All XLSX sources failed.");
-    setLoadStatus("error");
-  })();
-}, []);
+            (async () => {
+              try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const parsed = parseWorkbook(await res.arrayBuffer());
+                if (cancelled) return;
+                if (!parsed.length) throw new Error("no usable rows");
+                setRows(parsed);
+                setLoadStatus("ready");
+              } catch (err) {
+                console.warn("Failed to load", url, err);
+                if (!cancelled) setLoadStatus("error");
+              }
+            })();
+
+            return () => { cancelled = true; };
+          }, []);
+
+          /* 备用入口：本地双击打开时浏览器禁止读取同目录文件，改为手动选择 */
+          const handleFileSelect = (event) => {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            setLoadStatus("loading");
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              try {
+                const parsed = parseWorkbook(e.target.result);
+                if (!parsed.length) throw new Error("no usable rows");
+                setRows(parsed);
+                setLoadStatus("ready");
+              } catch (err) {
+                console.error("Failed to parse the selected file:", err);
+                setLoadStatus("error");
+              }
+            };
+            reader.onerror = () => setLoadStatus("error");
+            reader.readAsArrayBuffer(file);
+          };
 
           useEffect(() => {
             const update = () => setVh(window.innerHeight || 800);
@@ -735,8 +782,8 @@ useEffect(() => {
             };
           }, [active, isContactOpen]);
 
-          const openCategory = (li, gi, ci) => {
-            setActive({ li, gi, ci });
+          const openCategory = (ci) => {
+            setActive({ ci });
             setDetailIdx(null);
             setIsPanelClosing(false);
             setIsDetailLayoutActive(false);
@@ -791,167 +838,121 @@ useEffect(() => {
 
               return (
                 <button
-                    onClick={() => openCategory(c.li, c.gi, ci)}
+                    onClick={() => openCategory(ci)}
                     className="w-full text-left"
                     aria-label={`open ${c.name} overlay`}
                 >
                     <div
                         className="category-card-base rounded-2xl px-4 py-3 shadow-xl ring-1 ring-black/10 transition hover:shadow-2xl focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-white flex items-center justify-center text-center"
                         style={{ background: c.color, color: textColor }}
-                        title={`Group: ${c.group} / Category: ${c.name}`}
+                        title={`Group: ${c.group} / Category: ${c.name} ${c.nameZh || ''}`}
                     >
-                        <div className="text-lg font-semibold leading-snug break-words line-clamp-3">
-                            {c.name}
+                        <div className="w-full">
+                            <Bi
+                                en={c.name}
+                                zh={c.nameZh}
+                                enClass="text-sm font-semibold leading-snug break-words line-clamp-3"
+                                zhClass="text-[16px] font-medium leading-snug break-words line-clamp-2 opacity-90 mt-1"
+                            />
                         </div>
                     </div>
                 </button>
               );
           };
 
-          const EmptyCard = ({ key }) => (
+          const EmptyCard = () => (
               <div
-                  key={key}
                   className="category-card-base rounded-2xl p-4 transition"
                   style={{ opacity: 0 }}
               />
           );
 
+          /* 结尾的空位：虚线浅灰框，明确不可点击，
+             提示 MMD 可以继续接纳新出现的研究领域 */
+          const PlaceholderCard = () => (
+              <div
+                  className="category-card-base rounded-2xl flex items-center justify-center text-center select-none"
+                  style={{
+                      background: '#ffffff',
+                      border: '2px dashed #dbe1e8',
+                      color: '#cbd5e1',
+                      cursor: 'default',
+                      pointerEvents: 'none'
+                  }}
+                  aria-hidden="true"
+              >
+                  <div className="text-3xl font-light leading-none">+</div>
+              </div>
+          );
+
           const renderPage1 = () => {
-            if (flatCategories.length === 0) {
+            if (loadStatus === "loading") {
               return (
-                <div className="main-container-width flex flex-col items-center justify-center gap-4 py-32 text-slate-500">
-                  {loadStatus === "error" ? (
-                    <div className="text-center">
-                      <div className="text-lg font-semibold text-slate-700 mb-1">无法加载数据</div>
-                      <div className="text-sm">未能读取 mmd.xlsx，请检查文件路径或网络连接。</div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="w-10 h-10 border-4 border-slate-200 border-t-[#2867A0] rounded-full animate-spin" />
-                      <div className="text-sm">Loading the Mega-Map of Design…</div>
-                    </>
-                  )}
+                <div className="main-container-width flex flex-col items-center justify-center gap-3 py-32 text-slate-500">
+                  <div className="text-lg font-semibold text-slate-700">Loading the Mega-Map of Design…</div>
+                  <div className="text-sm">Reading {DATA_FILE}</div>
                 </div>
               );
             }
 
-            const categorizedData = [];
-            let currentLayer = null;
-            let globalCatIndex = 0;
+            if (loadStatus === "error" || flatCategories.length === 0) {
+              return (
+                <div className="main-container-width flex flex-col items-center justify-center gap-3 py-32 text-slate-500">
+                  <div className="text-lg font-semibold text-slate-700">Could not load {DATA_FILE}</div>
+                  <div className="text-sm text-center max-w-lg">
+                    This page reads {DATA_FILE} from the same folder and needs to be opened through a web
+                    server or GitHub Pages. Browsers block local pages from reading neighbouring files, so
+                    when the page is opened by double-clicking, select the file manually below.
+                  </div>
+                  <label className="mt-2 cursor-pointer rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700">
+                    Select {DATA_FILE}
+                    <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFileSelect} />
+                  </label>
+                </div>
+              );
+            }
 
-            flatCategories.forEach((cat) => {
-                const isNewLayer = cat.layer !== currentLayer;
-                if (isNewLayer) {
-                    categorizedData.push({ type: 'layer_start', layer: cat.layer });
-                    currentLayer = cat.layer;
-                }
-                categorizedData.push({ type: 'category', data: cat, globalIndex: globalCatIndex });
-                globalCatIndex++;
-            });
+            /* 取消 Layer 分层，全部 Category 按原表顺序平铺
+               行长 6 / 5 交替（原 Layer 3 的排列方式），偶数行反向排列 */
+            /* 队尾追加一块占位卡片，随 Category 数量一起流动 */
+            const entries = flatCategories.map(c => ({ type: 'category', c }));
+            entries.push({ type: 'placeholder' });
 
-            const renderBlocks = [];
-            let rowBuffer = [];
+            const blocks = [];
+            let cursor = 0;
             let isOddRow = true;
-            let rowCount = 0;
-            let currentLayerForRows = null;
-
-            const getRowSize = (odd, layerName) => {
-              if (layerName === 'Layer 3') {
-                return odd ? 6 : 5;
-              }
-              return odd ? 5 : 6;
-            };
-
-            const pushAndResetRow = (buffer, odd, blocks, count, layerName) => {
-                const rowSize = getRowSize(odd, layerName);
-                while (buffer.length < rowSize) {
-                    buffer.push({ type: 'empty', key: `empty-${count}-${buffer.length}` });
-                }
-                blocks.push({ type: 'row', data: buffer, isOddRow: odd, layer: layerName });
-                return { newBuffer: [], newOdd: !odd, newCount: count + 1 };
-            };
-
-            categorizedData.forEach(item => {
-                if (item.type === 'layer_start') {
-                    if (rowBuffer.length > 0 && currentLayerForRows) {
-                        const { newBuffer, newOdd, newCount } = pushAndResetRow(
-                            rowBuffer,
-                            isOddRow,
-                            renderBlocks,
-                            rowCount,
-                            currentLayerForRows
-                        );
-                        rowBuffer = newBuffer;
-                        isOddRow = newOdd;
-                        rowCount = newCount;
-                    }
-
-                    renderBlocks.push({ type: 'layer_divider', layer: item.layer });
-
-                    rowBuffer = [];
-                    isOddRow = true;
-                    currentLayerForRows = item.layer;
-                } else if (item.type === 'category') {
-                    const rowSize = getRowSize(isOddRow, currentLayerForRows);
-                    rowBuffer.push(item);
-
-                    if (rowBuffer.length === rowSize) {
-                        const { newBuffer, newOdd, newCount } = pushAndResetRow(
-                            rowBuffer,
-                            isOddRow,
-                            renderBlocks,
-                            rowCount,
-                            currentLayerForRows
-                        );
-                        rowBuffer = newBuffer;
-                        isOddRow = newOdd;
-                        rowCount = newCount;
-                    }
-                }
-            });
-
-            if (rowBuffer.length > 0 && currentLayerForRows) {
-                pushAndResetRow(rowBuffer, isOddRow, renderBlocks, rowCount, currentLayerForRows);
+            while (cursor < entries.length) {
+              const size = isOddRow ? 6 : 5;
+              blocks.push({
+                items: entries.slice(cursor, cursor + size),
+                size,
+                isOddRow
+              });
+              cursor += size;
+              isOddRow = !isOddRow;
             }
 
             return (
-                <div className="main-container-width">
-                    {renderBlocks.map((block, index) => {
-                        if (block.type === 'layer_divider') {
-                            const showDivider = index > 0;
-                            return (
-                                <div key={`layer-${index}`} className={`relative my-12 ${index === 0 ? 'mt-0' : 'pt-6'}`}>
-                                    <div className={`absolute top-0 left-0 w-full layer-divider ${!showDivider ? 'hidden' : ''}`} />
-                                </div>
-                            );
-                        } else if (block.type === 'row') {
-                            const isOddRow = block.isOddRow;
-                            const rowData = block.data;
-                            const isLayer3 = block.layer === 'Layer 3';
+                <div className="main-container-width pt-8">
+                    {blocks.map((block, index) => {
+                        const gridClass = block.isOddRow ? 'grid-6-centered' : 'grid-5-centered';
+                        const cards = block.items.map((entry, k) => (
+                            entry.type === 'category'
+                                ? <CategoryCard key={entry.c.key} c={entry.c} ci={entry.c.ci} />
+                                : <PlaceholderCard key={`placeholder-${index}-${k}`} />
+                        ));
+                        if (!block.isOddRow) cards.reverse();
 
-                            const useGrid6 = isLayer3 ? isOddRow : !isOddRow;
-                            const gridClass = useGrid6 ? 'grid-6-centered' : 'grid-5-centered';
+                        const padCount = block.size - block.items.length;
+                        const pads = Array.from({ length: padCount }).map((_, k) => (
+                            <EmptyCard key={`empty-${index}-${k}`} />
+                        ));
 
-                            const shouldReverse = !isOddRow;
-                            const itemsToRender = shouldReverse ? rowData.slice().reverse() : rowData;
-
-                            return (
-                                <div key={`row-${index}`} className={`w-full mb-6 ${gridClass}`}>
-                                    {itemsToRender.map((item) => (
-                                        item.type === 'category' ? (
-                                            <CategoryCard
-                                                key={item.data.key}
-                                                c={item.data}
-                                                ci={item.data.ci}
-                                            />
-                                        ) : (
-                                            <EmptyCard key={item.key} />
-                                        )
-                                    ))}
-                                </div>
-                            );
-                        }
-                        return null;
+                        return (
+                            <div key={`row-${index}`} className={`w-full mb-6 ${gridClass}`}>
+                                {block.isOddRow ? [...cards, ...pads] : [...pads, ...cards]}
+                            </div>
+                        );
                     })}
                 </div>
             );
@@ -1056,8 +1057,13 @@ useEffect(() => {
                                     e.stopPropagation();
                                   }}
                                 >
-                                  <div className="text-xl font-semibold leading-tight break-words max-w-[14rem]">
-                                    {C.name}
+                                  <div className="max-w-[16rem]">
+                                    <Bi
+                                      en={C.name}
+                                      zh={C.nameZh}
+                                      enClass="text-lg font-semibold leading-tight break-words"
+                                      zhClass="text-[19px] font-medium leading-tight break-words opacity-90 mt-1"
+                                    />
                                   </div>
                                 </div>
 
@@ -1108,8 +1114,13 @@ useEffect(() => {
                                         zIndex: isActive ? 30 : 10
                                       }}
                                     >
-                                      <div className="font-medium leading-tight break-words px-3 py-2 text-base">
-                                        {sub?.label || "Subcategory"}
+                                      <div className="px-3 py-2">
+                                        <Bi
+                                          en={sub?.label || "Subcategory"}
+                                          zh={sub?.labelZh}
+                                          enClass="text-sm font-semibold leading-tight break-words"
+                                          zhClass="text-[15px] font-medium leading-tight break-words opacity-90 mt-0.5"
+                                        />
                                       </div>
                                     </button>
                                   );
@@ -1149,11 +1160,13 @@ useEffect(() => {
                                                borderBottom: `1px solid ${hexToRgba(panelTextColor, 0.4)}`
                                         }}
                                       >
-                                        <div
-                                            className="text-xl font-bold truncate pr-4"
-                                            style={{ color: panelTextColor }}
-                                        >
-                                            {s.label || 'Subcategory Detail'}
+                                        <div className="pr-4" style={{ color: panelTextColor }}>
+                                            <Bi
+                                                en={s.label || 'Subcategory Detail'}
+                                                zh={s.labelZh}
+                                                enClass="text-lg font-bold leading-snug"
+                                                zhClass="text-sm font-semibold leading-snug opacity-90"
+                                            />
                                         </div>
                                       </div>
 
