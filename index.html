@@ -217,9 +217,14 @@
            缺失时自动退回英文，页面不会报错。
            更新 xlsx 后如需强制刷新缓存，把 DATA_VERSION 加一即可。
            ============================================================ */
-        const DATA_FILE = "mmd.xlsx";
-        /* 大小写不同的常见写法，逐个尝试（GitHub Pages 区分大小写） */
-        const DATA_CANDIDATES = ["mmd.xlsx", "MMD.xlsx", "mmd.XLSX", "MMD.XLSX"];
+        const DATA_FILE = "data/mmd.xlsx";
+        /* 依次尝试的位置与写法：data 子目录优先，其次同目录；
+           GitHub Pages 区分大小写，故一并试 MMD.xlsx */
+        const DATA_DIRS = ["data/", "", "/Mega-Map-of-Design/data/"];
+        const DATA_NAMES = ["mmd.xlsx", "MMD.xlsx"];
+        const DATA_CANDIDATES = DATA_DIRS.reduce(
+          (list, dir) => list.concat(DATA_NAMES.map(name => dir + name)), []
+        );
         const DATA_VERSION = "1";
 
         /* 表头归一化：忽略大小写、空格、下划线、BOM 与全半角括号 */
@@ -919,9 +924,9 @@
                 <div className="main-container-width flex flex-col items-center justify-center gap-3 py-32 text-slate-500">
                   <div className="text-lg font-semibold text-slate-700">Could not load {DATA_FILE}</div>
                   <div className="text-sm text-center max-w-lg">
-                    This page reads {DATA_FILE} from the same folder and needs to be opened through a web
-                    server or GitHub Pages. Check that the file sits next to index.html and that its name
-                    matches exactly, including capitalisation.
+                    This page reads {DATA_FILE} and needs to be opened through a web server or GitHub
+                    Pages. Check that the workbook sits in the data folder next to index.html and that its
+                    name matches exactly, including capitalisation.
                   </div>
                   {loadError && (
                     <div className="text-xs text-slate-400 text-center max-w-lg break-all">{loadError}</div>
