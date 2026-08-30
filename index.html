@@ -218,6 +218,8 @@
            更新 xlsx 后如需强制刷新缓存，把 DATA_VERSION 加一即可。
            ============================================================ */
         const DATA_FILE = "mmd.xlsx";
+        /* 大小写不同的常见写法，逐个尝试（GitHub Pages 区分大小写） */
+        const DATA_CANDIDATES = ["mmd.xlsx", "MMD.xlsx", "mmd.XLSX", "MMD.XLSX"];
         const DATA_VERSION = "1";
 
         /* 表头归一化：忽略大小写、空格、下划线、BOM 与全半角括号 */
@@ -712,6 +714,7 @@
         function DesignMapPage() {
           const [rows, setRows] = useState([]);
           const [loadStatus, setLoadStatus] = useState("loading");
+          const [loadError, setLoadError] = useState("");
           const { flatCategories, count } = useParsedData(rows);
           const [active, setActive] = useState(null);
           const [detailIdx, setDetailIdx] = useState(null);
@@ -723,20 +726,36 @@
           /* 启动时读取同目录下的 mmd.xlsx */
           useEffect(() => {
             let cancelled = false;
-            const url = `${DATA_FILE}?v=${DATA_VERSION}`;
 
             (async () => {
-              try {
-                const res = await fetch(url);
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                const parsed = parseWorkbook(await res.arrayBuffer());
-                if (cancelled) return;
-                if (!parsed.length) throw new Error("no usable rows");
-                setRows(parsed);
-                setLoadStatus("ready");
-              } catch (err) {
-                console.warn("Failed to load", url, err);
-                if (!cancelled) setLoadStatus("error");
+              if (window.location && window.location.protocol === "file:") {
+                console.warn("Opened via file://, fetch is blocked by the browser.");
+                setLoadError("The page was opened directly from disk (file://). Browsers block local pages from reading neighbouring files.");
+                setLoadStatus("error");
+                return;
+              }
+
+              let lastError = "";
+              for (const candidate of DATA_CANDIDATES) {
+                const url = `${candidate}?v=${DATA_VERSION}`;
+                try {
+                  const res = await fetch(url);
+                  if (!res.ok) { lastError = `${candidate} → HTTP ${res.status}`; continue; }
+                  const parsed = parseWorkbook(await res.arrayBuffer());
+                  if (cancelled) return;
+                  if (!parsed.length) { lastError = `${candidate} → no usable rows`; continue; }
+                  setRows(parsed);
+                  setLoadStatus("ready");
+                  return;
+                } catch (err) {
+                  lastError = `${candidate} → ${err && err.message ? err.message : err}`;
+                  console.warn("Failed to load", url, err);
+                }
+              }
+
+              if (!cancelled) {
+                setLoadError(lastError);
+                setLoadStatus("error");
               }
             })();
 
@@ -901,9 +920,12 @@
                   <div className="text-lg font-semibold text-slate-700">Could not load {DATA_FILE}</div>
                   <div className="text-sm text-center max-w-lg">
                     This page reads {DATA_FILE} from the same folder and needs to be opened through a web
-                    server or GitHub Pages. Browsers block local pages from reading neighbouring files, so
-                    when the page is opened by double-clicking, select the file manually below.
+                    server or GitHub Pages. Check that the file sits next to index.html and that its name
+                    matches exactly, including capitalisation.
                   </div>
+                  {loadError && (
+                    <div className="text-xs text-slate-400 text-center max-w-lg break-all">{loadError}</div>
+                  )}
                   <label className="mt-2 cursor-pointer rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700">
                     Select {DATA_FILE}
                     <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFileSelect} />
