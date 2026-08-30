@@ -13,6 +13,11 @@
 
     <style>
         #root { min-height: 100vh; }
+        /* 所有文字默认可选，可复制 */
+        body, #root, .category-card-base {
+            -webkit-user-select: text;
+            user-select: text;
+        }
         .layer-divider { border-top: 1px dashed #d1d5db; }
         .category-card-base {
             height: 44px;
@@ -198,6 +203,8 @@
         .card-dimmed { opacity: 0.18; filter: saturate(0.4); }
         .card-hit-badge {
             position: absolute;
+            z-index: 30;
+            pointer-events: none;
             top: -5px;
             right: -5px;
             min-width: 16px;
@@ -801,6 +808,20 @@
           }, [rows]);
         }
 
+        /* 划选文字后不应触发点击：记录按下位置，移动超过 4px
+           或松开时存在选区，就把这次点击视为选字而非点击 */
+        let pointerDownAt = null;
+        function markPointerDown(e) {
+          pointerDownAt = { x: e.clientX, y: e.clientY };
+        }
+        function isDragOrSelection(e) {
+          const from = pointerDownAt;
+          pointerDownAt = null;
+          if (from && (Math.abs(e.clientX - from.x) > 4 || Math.abs(e.clientY - from.y) > 4)) return true;
+          const sel = window.getSelection ? window.getSelection() : null;
+          return !!(sel && !sel.isCollapsed && String(sel).length > 0);
+        }
+
         /* 双语显示：英文在上，中文在下 */
         const Bi = ({ en, zh, enClass = "", zhClass = "" }) => (
           <React.Fragment>
@@ -1230,8 +1251,9 @@
             >
               {it.term && (
                 <div
-                  className="flex items-start justify-between cursor-pointer select-none"
-                  onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+                  className="flex items-start justify-between cursor-pointer"
+                  onMouseDown={markPointerDown}
+                  onClick={(e) => { e.stopPropagation(); if (isDragOrSelection(e)) return; setOpen(!open); }}
                 >
                   <div className="mb-1 flex-1 pr-2">
                     <Bi
@@ -1500,9 +1522,15 @@
               const dimmed = isFiltering && hitCount === 0;
 
               return (
-                <button
-                    onClick={() => openCategory(ci)}
-                    className={`w-full text-left relative ${dimmed ? 'card-dimmed' : ''}`}
+                <div
+                    role="button"
+                    tabIndex={0}
+                    onMouseDown={markPointerDown}
+                    onClick={(e) => { if (isDragOrSelection(e)) return; openCategory(ci); }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCategory(ci); }
+                    }}
+                    className={`w-full text-left relative cursor-pointer ${dimmed ? 'card-dimmed' : ''}`}
                     aria-label={`open ${c.name} overlay`}
                 >
                     {isFiltering && hitCount > 0 && (
@@ -1522,7 +1550,7 @@
                             />
                         </div>
                     </div>
-                </button>
+                </div>
               );
           };
 
@@ -1772,10 +1800,14 @@
                                   const subBoxShadow = `0 0 0 ${borderWidth}px rgba(255,255,255,0.7), 0 8px 22px rgba(15,23,42,0.35)`;
 
                                   return (
-                                    <button
+                                    <div
                                       key={idx}
+                                      role="button"
+                                      tabIndex={0}
+                                      onMouseDown={markPointerDown}
                                       onClick={(e) => {
                                         e.stopPropagation();
+                                        if (isDragOrSelection(e)) return;
                                         if (detailIdx === null) {
                                           setDetailIdx(idx);
                                           setIsPanelClosing(false);
@@ -1813,7 +1845,7 @@
                                           zhClass="text-[12px] font-medium leading-tight break-words opacity-90 mt-0.5"
                                         />
                                       </div>
-                                    </button>
+                                    </div>
                                   );
                                 })}
                               </div>
