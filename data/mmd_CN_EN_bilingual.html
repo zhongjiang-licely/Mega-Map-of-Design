@@ -1,0 +1,2819 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mega-Map of Design (MMD)</title>
+    
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <style>
+        #root { min-height: 100vh; }
+        /* 所有文字默认可选，可复制 */
+        body, #root, .category-card-base {
+            -webkit-user-select: text;
+            user-select: text;
+        }
+        .layer-divider { border-top: 1px dashed #d1d5db; }
+        .category-card-base {
+            /* 双语版：英文两行加中文一行 */
+            height: 62px;
+            width: var(--card-w);
+            flex-shrink: 0;
+            position: relative;
+        }
+        :root {
+            /* 卡片宽度固定，版面比例由整页等比缩放保证一致 */
+            --card-w: 234px;
+            /* 由脚本写入的整页缩放系数，供全屏浮层反算尺寸 */
+            --scale: 1;
+        }
+        /* zoom 会一并缩放 fixed 元素，故全屏层按系数还原为整屏 */
+        /* ---------- 检索栏 ---------- */
+        .search-bar-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 560px;
+            margin: 0 auto 8px auto;
+        }
+        .search-input-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            background: #fff;
+            padding: 2px 6px 2px 8px;
+        }
+        .search-input-row:focus-within {
+            border-color: #64748b;
+            box-shadow: 0 0 0 3px rgba(100,116,139,0.12);
+        }
+        .search-icon { font-size: 14px; color: #64748b; line-height: 1; }
+        .search-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 12px;
+            padding: 4px 2px;
+            background: transparent;
+            color: #0f172a;
+        }
+        .search-clear {
+            font-size: 14px;
+            line-height: 1;
+            color: #94a3b8;
+            padding: 0 4px;
+        }
+        .search-clear:hover { color: #0f172a; }
+        .search-fields-toggle,
+        .search-go {
+            font-size: 10.5px;
+            font-weight: 600;
+            border-radius: 7px;
+            padding: 3px 8px;
+            white-space: nowrap;
+        }
+        .search-fields-toggle {
+            border: 1px solid #cbd5e1;
+            color: #475569;
+            background: #f8fafc;
+        }
+        .search-fields-toggle:hover { background: #f1f5f9; }
+        .search-go {
+            background: #0f172a;
+            color: #fff;
+        }
+        .search-go:hover { background: #1e293b; }
+        .search-count {
+            position: absolute;
+            right: 4px;
+            top: 100%;
+            margin-top: 2px;
+            font-size: 10px;
+            color: #64748b;
+        }
+        .search-popover {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            right: 0;
+            z-index: 40;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            box-shadow: 0 12px 30px rgba(15,23,42,0.16);
+            padding: 6px;
+            max-height: 320px;
+            overflow-y: auto;
+            text-align: left;
+        }
+        .search-field-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11.5px;
+            color: #334155;
+            padding: 4px 6px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .search-field-row:hover { background: #f1f5f9; }
+        .search-field-note {
+            font-size: 10px;
+            color: #94a3b8;
+            padding: 4px 6px 2px 6px;
+        }
+        .search-suggest-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            text-align: left;
+            font-size: 11.5px;
+            color: #0f172a;
+            padding: 5px 6px;
+            border-radius: 6px;
+        }
+        .search-suggest-row:hover,
+        .search-suggest-row.is-active { background: #f1f5f9; }
+        .search-suggest-dot {
+            width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0;
+        }
+        .search-suggest-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .search-suggest-level { font-size: 10px; color: #94a3b8; flex-shrink: 0; }
+        .search-mark { background: #fde68a; color: inherit; border-radius: 2px; padding: 0 1px; }
+
+        /* ---------- 结果面板 ---------- */
+        .search-results {
+            margin-top: 60px;
+            width: 720px;
+            max-width: 92vw;
+            max-height: 76vh;
+            display: flex;
+            flex-direction: column;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 24px 60px rgba(15,23,42,0.35);
+            overflow: hidden;
+        }
+        .search-results-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 12px;
+            color: #334155;
+        }
+        .search-results-close { font-size: 18px; line-height: 1; color: #94a3b8; }
+        .search-results-close:hover { color: #0f172a; }
+        .search-results-body { overflow-y: auto; padding: 8px 8px 16px 8px; }
+        .search-group { margin-bottom: 10px; }
+        .search-group-head {
+            font-size: 10.5px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #94a3b8;
+            padding: 6px 8px 4px 8px;
+        }
+        .search-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            width: 100%;
+            text-align: left;
+            padding: 7px 8px;
+            border-radius: 8px;
+        }
+        .search-row:hover { background: #f1f5f9; }
+        .search-row-dot { width: 8px; height: 8px; border-radius: 999px; margin-top: 4px; flex-shrink: 0; }
+        .search-row-main { flex: 1; min-width: 0; }
+        .search-row-path { display: block; font-size: 10px; color: #94a3b8; margin-bottom: 1px; }
+        .search-row-text { display: block; font-size: 11.5px; color: #0f172a; line-height: 1.5; }
+        .search-row-level { font-size: 10px; color: #94a3b8; flex-shrink: 0; margin-top: 2px; }
+        .search-more { font-size: 10px; color: #94a3b8; padding: 2px 8px 6px 8px; }
+        .search-empty { font-size: 12px; color: #64748b; padding: 24px; text-align: center; }
+
+        /* ---------- 首页命中高亮 ---------- */
+        .card-dimmed { opacity: 0.18; filter: saturate(0.4); }
+        .card-hit-badge {
+            position: absolute;
+            z-index: 30;
+            pointer-events: none;
+            top: -5px;
+            right: -5px;
+            min-width: 16px;
+            height: 16px;
+            padding: 0 4px;
+            border-radius: 999px;
+            background: #0f172a;
+            color: #fff;
+            font-size: 9.5px;
+            font-weight: 700;
+            line-height: 16px;
+            text-align: center;
+            box-shadow: 0 1px 4px rgba(15,23,42,0.4);
+        }
+
+        .fullscreen-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: calc(100vw / var(--scale));
+            height: calc(100vh / var(--scale));
+        }
+        .grid-5-centered {
+            display: grid;
+            grid-template-columns: repeat(5, var(--card-w));
+            gap: 16px;
+            justify-content: center;
+        }
+        .grid-6-centered {
+            display: grid;
+            grid-template-columns: repeat(6, var(--card-w));
+            gap: 16px;
+            justify-content: center;
+        }
+        .main-container-width {
+             max-width: 1700px;
+             margin: 0 auto;
+             padding: 0 20px;
+        }
+        .contact-drawer-overlay {
+            z-index: 50;
+            background-color: rgba(0, 0, 0, 0.5);
+            transition: opacity 0.3s ease;
+        }
+        .contact-drawer {
+            position: fixed;
+            top: 0;
+            right: 0;
+            height: calc(100vh / var(--scale));
+            width: 360px;
+            max-width: 90vw;
+            background-color: white;
+            box-shadow: -4px 0 15px rgba(0, 0, 0, 0.1);
+            transform: translateX(100%);
+            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            z-index: 51;
+        }
+        .contact-drawer.is-open { transform: translateX(0); }
+
+        .mmd-rainbow {
+            display: inline-block;
+            padding-right: 0.1em;
+            background: linear-gradient(90deg,
+               #deebf7, #bdd7ee, #7eb0de, #4e93d2, #2867A0, #2f5597,
+               #203864, #548235, #91c46e, #b3d46a, #c2dd87, #d5e7ad,
+               #fff2cc, #ffe699, #ffd653, #eeb500, #d76213, #ef8d4b,
+               #f5b88f, #faddca, #ffabab, #e17171, #c04c4c, #b12568,
+               #df639e, #e890ba, #f4c8dd, #e3cef2, #b888dc, #9b56ce,
+               #7a33af
+            );
+            background-size: 200%;
+            -webkit-background-clip: text;
+            color: transparent;
+            font-weight: 900;
+            font-style: italic;
+            animation: rainbow-move 8s linear infinite;
+        }
+        @keyframes rainbow-move {
+            0%   { background-position: 0% 50%; }
+            100% { background-position: 100% 50%; }
+        }
+        .mmd-gradient {
+            display: inline-block;
+            padding-right: 0.1em;
+            background: linear-gradient(90deg,
+                #deebf7, #bdd7ee, #7eb0de, #4e93d2, #2867A0, #2f5597,
+                #203864, #548235, #91c46e, #b3d46a, #c2dd87, #d5e7ad,
+                #fff2cc, #ffe699, #ffd653, #eeb500, #d76213, #ef8d4b,
+                #f5b88f, #faddca, #ffabab, #e17171, #c04c4c, #b12568,
+                #df639e, #e890ba, #f4c8dd, #e3cef2, #b888dc, #9b56ce,
+                #7a33af
+            );
+           -webkit-background-clip: text;
+           color: transparent;
+           font-weight: 900;
+           font-style: italic;
+       }
+
+       .term-panel-wrapper {
+            clip-path: inset(0 0 0 100%);
+            -webkit-clip-path: inset(0 0 0 100%);
+       }
+       .term-panel-enter {
+            animation: term-panel-reveal 0.3s ease-out forwards;
+       }
+       .term-panel-exit {
+            animation: term-panel-hide 0.3s ease-in forwards;
+       }
+       @keyframes term-panel-reveal {
+            from {
+                clip-path: inset(0 0 0 100%);
+                -webkit-clip-path: inset(0 0 0 100%);
+            }
+            to {
+                clip-path: inset(0 0 0 0);
+                -webkit-clip-path: inset(0 0 0 0);
+            }
+       }
+       @keyframes term-panel-hide {
+            from {
+                clip-path: inset(0 0 0 0);
+                -webkit-clip-path: inset(0 0 0 0);
+            }
+            to {
+                clip-path: inset(0 0 0 100%);
+                -webkit-clip-path: inset(0 0 0 100%);
+            }
+       }
+
+       /* More/Less 展开区域过渡 */
+       .pu-expand-section {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.35s ease-out, opacity 0.3s ease-out;
+            opacity: 0;
+       }
+       .pu-expand-section.is-expanded {
+            max-height: 3000px;
+            opacity: 1;
+            transition: max-height 0.5s ease-in, opacity 0.3s ease-in;
+       }
+
+
+       /* ---------- Linked-term exploration ---------- */
+       .linked-term-button {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 10px;
+            border-radius: 9px;
+            transition: opacity 0.15s ease, transform 0.15s ease;
+       }
+       .linked-term-button:hover { opacity: 0.82; }
+       .linked-term-strip {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+       }
+       .linked-term-tag {
+            max-width: 160px;
+            min-height: 24px;
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1.25;
+            cursor: pointer;
+            background: #f8fafc;
+            color: #111827;
+            box-shadow: 0 1px 2px rgba(15,23,42,0.08);
+            border: 1px solid #cbd5e1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+       }
+       .linked-term-tag:hover {
+            background: #e5e7eb;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 7px rgba(15,23,42,0.12);
+       }
+       .linked-term-expanded {
+            margin-top: 8px;
+            max-height: 240px;
+            overflow-y: auto;
+            padding: 8px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.38);
+            border: 1px solid rgba(15,23,42,0.08);
+       }
+       .linked-term-expanded-title {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            opacity: 0.62;
+            margin: 0 0 6px 2px;
+       }
+       .linked-term-preview-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 70;
+            background: rgba(15,23,42,0.18);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+       }
+       .linked-term-preview-card {
+            width: 440px;
+            max-width: calc(100vw - 48px);
+            max-height: calc(100vh - 48px);
+            overflow-y: auto;
+            background: white;
+            color: #0f172a;
+            border-radius: 18px;
+            box-shadow: 0 24px 64px rgba(15,23,42,0.36);
+            border: 1px solid #e2e8f0;
+       }
+       .linked-term-preview-header {
+            padding: 16px 18px 12px 18px;
+            border-bottom: 1px solid #e2e8f0;
+       }
+       .linked-term-preview-body { padding: 14px 18px 16px 18px; }
+       .linked-term-preview-path {
+            font-size: 11px;
+            color: #64748b;
+            line-height: 1.45;
+            margin-top: 5px;
+       }
+       .linked-term-preview-definition {
+            font-size: 12.5px;
+            color: #334155;
+            line-height: 1.6;
+            margin-top: 10px;
+            white-space: pre-wrap;
+       }
+       .linked-term-preview-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+       }
+       .linked-term-preview-pill {
+            font-size: 10.5px;
+            font-weight: 700;
+            color: #475569;
+            background: #f1f5f9;
+            border-radius: 999px;
+            padding: 3px 8px;
+       }
+       .linked-term-preview-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            padding: 12px 18px 16px 18px;
+            border-top: 1px solid #e2e8f0;
+       }
+       .history-panel {
+            position: fixed;
+            right: 16px;
+            top: 92px;
+            width: 220px;
+            max-height: calc((100vh / var(--scale)) - 116px);
+            overflow-y: auto;
+            z-index: 45;
+            background: rgba(255,255,255,0.96);
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            box-shadow: 0 14px 36px rgba(15,23,42,0.16);
+            padding: 10px;
+       }
+       .history-title {
+            cursor: grab;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            padding: 3px 2px 7px;
+            margin-bottom: 5px;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            color: #64748b;
+            text-transform: uppercase;
+            margin: 0 0 8px 2px;
+       }
+       .history-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 7px;
+            width: 100%;
+            text-align: left;
+            border-radius: 9px;
+            padding: 6px;
+            color: #0f172a;
+       }
+       .history-row:hover { background: #f1f5f9; }
+       .history-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 999px;
+            flex-shrink: 0;
+            margin-top: 4px;
+       }
+       .history-main { min-width: 0; flex: 1; }
+       .history-term {
+            display: block;
+            font-size: 11.5px;
+            font-weight: 700;
+            line-height: 1.25;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+       }
+       .history-path {
+            display: block;
+            font-size: 9.5px;
+            color: #94a3b8;
+            line-height: 1.25;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 1px;
+       }
+    </style>
+</head>
+<body>
+    <div id="root">
+        <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#64748b">
+            <div style="width:42px;height:42px;border:4px solid #e2e8f0;border-top-color:#2867A0;border-radius:50%;animation:mmd-spin 0.8s linear infinite"></div>
+            <div style="font-size:15px;letter-spacing:0.02em">Loading the Mega-Map of Design…</div>
+        </div>
+    </div>
+    <style>@keyframes mmd-spin{to{transform:rotate(360deg)}}</style>
+
+    <script type="text/babel">
+        const { useMemo, useState, useEffect, useCallback } = React;
+
+
+        const CLASSIC_GRADIENT_PALETTE_31 = [
+            "#deebf7", "#bdd7ee", "#7eb0de", "#4e93d2", "#2867A0", "#2f5597",
+            "#203864", "#548235", "#91c46e", "#b3d46a", "#c2dd87", "#d5e7ad",
+            "#fff2cc", "#ffe699", "#ffd653", "#eeb500", "#d76213", "#ef8d4b",
+            "#f5b88f", "#faddca", "#ffabab", "#e17171", "#c04c4c", "#b12568",
+            "#df639e", "#e890ba", "#f4c8dd", "#e3cef2", "#b888dc", "#9b56ce",
+            "#7a33af",
+        ];
+
+        function lightenHex(hex, amount = 20) {
+            if (!hex) return hex;
+            hex = hex.replace('#', '');
+            if (hex.length !== 6) return '#' + hex;
+
+            const num = parseInt(hex, 16);
+            let r = (num >> 16) + amount;
+            let g = ((num >> 8) & 0x00FF) + amount;
+            let b = (num & 0x0000FF) + amount;
+
+            r = Math.min(255, r);
+            g = Math.min(255, g);
+            b = Math.min(255, b);
+
+            const newHex =
+                '#' +
+                r.toString(16).padStart(2, '0') +
+                g.toString(16).padStart(2, '0') +
+                b.toString(16).padStart(2, '0');
+
+            return newHex;
+        }
+
+        function getTextColorForBackground(hex) {
+          if (!hex) return '#111827';
+          const c = hex.replace('#', '');
+          if (c.length !== 6) return '#111827';
+          const r = parseInt(c.slice(0, 2), 16);
+          const g = parseInt(c.slice(2, 4), 16);
+          const b = parseInt(c.slice(4, 6), 16);
+          const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+          return brightness > 175 ? '#111827' : '#FFFFFF';
+        }
+
+        function hexToRgba(hex, alpha = 0.4) {
+          if (!hex) return `rgba(0,0,0,${alpha})`;
+          const c = hex.replace('#', '');
+          if (c.length !== 6) return `rgba(0,0,0,${alpha})`;
+          const r = parseInt(c.slice(0, 2), 16);
+          const g = parseInt(c.slice(2, 4), 16);
+          const b = parseInt(c.slice(4, 6), 16);
+          return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        /* ============================================================
+           整页等比缩放
+           以下面的基准尺寸为准，页面按窗口大小整体放大或缩小，
+           因此在任何显示器上看到的都是同一版面的等比缩放，比例不变。
+           ============================================================ */
+        const BASE_WIDTH = 1560;   // 网格 1484 加两侧留白
+        const BASE_HEIGHT = 974;   // 顶部栏加网格总高（双语版卡片加高 18px × 13 行）
+        const MIN_SCALE = 0.7;
+        const MAX_SCALE = 1.25;
+
+        function computeScale(w, h) {
+          const raw = Math.min(w / BASE_WIDTH, h / BASE_HEIGHT);
+          return Math.min(MAX_SCALE, Math.max(MIN_SCALE, Math.round(raw * 1000) / 1000));
+        }
+
+        const LIST_CATEGORY_HEIGHT = 88;
+        const LIST_CATEGORY_ASPECT_RATIO = 2.4;
+
+        /* ============================================================
+           数据层
+           页面启动时读取同目录下的 mmd.xlsx，因此改表即改内容。
+           中文列（如「Category（中文）」）存在时按中英双语显示；
+           缺失时自动退回英文，页面不会报错。
+           更新 xlsx 后如需强制刷新缓存，把 DATA_VERSION 加一即可。
+           ============================================================ */
+        const DATA_FILE = "mmd_CN_EN_bilingual.xlsx";
+        /* 依次尝试的位置与写法：data 子目录优先，其次同目录；
+           GitHub Pages 区分大小写，故一并试 MMD.xlsx */
+        const DATA_DIRS = [""];
+        const DATA_NAMES = ["mmd_CN_EN_bilingual.xlsx"];
+        const DATA_CANDIDATES = DATA_DIRS.reduce(
+          (list, dir) => list.concat(DATA_NAMES.map(name => dir + name)), []
+        );
+        const DATA_VERSION = "7";
+        /* 下载后双击打开时为 file://，此时改为由用户手动选择数据文件 */
+        const IS_LOCAL_FILE = !!(window.location && window.location.protocol === "file:");
+
+        /* 表头归一化：忽略大小写、空格、下划线、BOM 与全半角括号 */
+        function normaliseHeader(name) {
+          return String(name || "")
+            .replace(/^\uFEFF/, "")
+            .replace(/[\s_（）()]/g, "")
+            .toLowerCase();
+        }
+
+        const FIELD_BY_HEADER = {
+          "group": "Group",
+          "category": "Category",
+          "subcategory": "Subcategory",
+          "term": "Term",
+          "subterm": "Subterm",
+          "processingunit": "ProcessingUnit",
+          "whatitis": "WhatItIs",
+          "whatitisnot": "WhatItIsNot",
+          "howitisused": "HowItIsUsed",
+          "howitisstudied": "HowItIsStudied",
+          "references": "References"
+        };
+
+        /* 需要向下填充的列（原表只在区块首行填值） */
+        const CARRY_FIELDS = ["Group", "Category", "CategoryZh", "Subcategory", "SubcategoryZh", "Term", "TermZh"];
+
+        /* 把一行原始数据映射为统一字段名，中文列加 Zh 后缀 */
+        function mapRow(raw) {
+          const row = {};
+          Object.keys(raw).forEach(key => {
+            const norm = normaliseHeader(key);
+            const isZh = norm.indexOf("中文") !== -1;
+            const base = FIELD_BY_HEADER[norm.replace("中文", "")];
+            if (!base) return;
+            const value = raw[key] === undefined || raw[key] === null ? "" : String(raw[key]).trim();
+            row[isZh ? base + "Zh" : base] = value;
+          });
+          return row;
+        }
+
+        function normaliseRows(rawRows) {
+          const carried = {};
+          const rows = [];
+
+          rawRows.forEach(raw => {
+            const row = mapRow(raw);
+
+            CARRY_FIELDS.forEach(field => {
+              const value = row[field] || "";
+              if (value === "") {
+                row[field] = carried[field] || "";
+              } else {
+                carried[field] = value;
+              }
+            });
+
+            // 只有破折号的 Subterm 视为空
+            const onlyDashes = String(row.Subterm || "").replace(/[\s\u00A0\u200B]+/g, "");
+            if (/^[-—–]*$/.test(onlyDashes)) {
+              row.Subterm = "";
+              row.SubtermZh = "";
+            }
+
+            // 四个描述列优先取中文，缺中文时退回英文；英文原文另存，供英文检索
+            ["WhatItIs", "WhatItIsNot", "HowItIsUsed", "HowItIsStudied"].forEach(field => {
+              row[field + "En"] = row[field] || "";
+              row[field] = row[field + "Zh"] || row[field] || "";
+            });
+            row.References = row.References || "";
+
+            if (!row.Group || !row.Category || !row.Subcategory || !row.Term) return;
+            rows.push(row);
+          });
+
+          return rows;
+        }
+
+
+        function keyPart(value) {
+          return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
+        }
+
+        function makeTermKey(group, category, subcategory, term) {
+          return [group, category, subcategory, term].map(keyPart).join("||");
+        }
+
+        function cleanExcelHeader(key) {
+          return String(key || "").replace(/^\uFEFF/, "").trim().toLowerCase().replace(/[\s\-]+/g, "_");
+        }
+
+        function normaliseLinkRow(raw) {
+          const r = {};
+          Object.keys(raw || {}).forEach(key => { r[cleanExcelHeader(key)] = raw[key]; });
+          const sourceGroup = String(r.source_group || "").trim();
+          const sourceCategory = String(r.source_category || "").trim();
+          const sourceSubCategory = String(r.source_sub_category || r.source_subcategory || "").trim();
+          const sourceTerm = String(r.source_term || "").trim();
+          const targetGroup = String(r.target_group || "").trim();
+          const targetCategory = String(r.target_category || "").trim();
+          const targetSubCategory = String(r.target_sub_category || r.target_subcategory || "").trim();
+          const targetTerm = String(r.target_term || "").trim();
+          const scoreRaw = r.recommendation_score;
+          const score = scoreRaw === undefined || scoreRaw === null || scoreRaw === "" ? null : Number(scoreRaw);
+          const rankRaw = r.rank;
+          return {
+            sourceId: String(r.source_id || "").trim(),
+            sourceGroup, sourceCategory, sourceSubCategory, sourceTerm,
+            sourceTermZh: String(r.source_term_zh || "").trim(),
+            sourceKey: makeTermKey(sourceGroup, sourceCategory, sourceSubCategory, sourceTerm),
+            rank: rankRaw === undefined || rankRaw === null || rankRaw === "" ? null : Number(rankRaw),
+            orderStage: String(r.order_stage || r.recommendation_stage || "").trim(),
+            recommendationStage: String(r.recommendation_stage || r.order_stage || "").trim(),
+            isTopRecommendation: String(r.is_top_recommendation || "").toLowerCase() === "true",
+            recommendationScore: Number.isFinite(score) ? score : null,
+            strength: String(r.strength || "").trim(),
+            hierarchicalDistance: String(r.hierarchical_distance || "").trim(),
+            targetId: String(r.target_id || "").trim(),
+            targetGroup, targetCategory, targetSubCategory, targetTerm,
+            targetTermZh: String(r.target_term_zh || "").trim(),
+            targetKey: makeTermKey(targetGroup, targetCategory, targetSubCategory, targetTerm),
+            linkId: String(r.link_id || "").trim(),
+            pairId: String(r.pair_id || "").trim(),
+            types: String(r.types || "").trim(),
+            directions: String(r.directions || "").trim(),
+            justification: String(r.justification || "").trim()
+          };
+        }
+
+        /* 首屏只解析轻量工作表；all_linked_terms_ordered 仅在用户点击顶部按钮后由 Web Worker 解析。 */
+        /* Large MMD workbooks contain more than 500,000 full-link rows.
+           SheetJS would otherwise process the large ZIP on the UI thread even
+           when the requested workbook sheets are only the small first two.
+           Extract just the initial sheets into a temporary in-memory workbook. */
+        async function parseInitialWorkbook(arrayBuffer) {
+          if (!window.XLSX) throw new Error("SheetJS not loaded. Check your internet connection.");
+          if (!window.JSZip) throw new Error("JSZip not loaded. Check your internet connection.");
+          const archive = await JSZip.loadAsync(arrayBuffer);
+          const primary = archive.file("xl/worksheets/sheet1.xml");
+          const suggestions = archive.file("xl/worksheets/sheet3.xml");
+          if (!primary) throw new Error("Missing mmd_data sheet");
+          const mini = new JSZip();
+          mini.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`);
+          mini.file("_rels/.rels", `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`);
+          mini.file("xl/workbook.xml", `<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="mmd_data" sheetId="1" r:id="rId1"/><sheet name="recommended_links" sheetId="2" r:id="rId2"/></sheets></workbook>`);
+          mini.file("xl/_rels/workbook.xml.rels", `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/></Relationships>`);
+          mini.file("xl/worksheets/sheet1.xml", await primary.async("uint8array"));
+          if (suggestions) mini.file("xl/worksheets/sheet2.xml", await suggestions.async("uint8array"));
+          const lightweightBuffer = await mini.generateAsync({ type: "arraybuffer", compression: "STORE" });
+          const workbook = XLSX.read(lightweightBuffer, { type: "array", sheets: ["mmd_data", "recommended_links"] });
+          const mmdSheet = workbook.Sheets["mmd_data"];
+          if (!mmdSheet) throw new Error("mmd_data sheet not found");
+          const rows = normaliseRows(XLSX.utils.sheet_to_json(mmdSheet, { defval: "" }));
+          const recommendationSheet = workbook.Sheets["recommended_links"];
+          const recommendedLinks = recommendationSheet
+            ? XLSX.utils.sheet_to_json(recommendationSheet, { defval: "" }).map(normaliseLinkRow).filter(r => r.sourceTerm && r.targetTerm)
+            : [];
+          return { rows, recommendedLinks };
+        }
+
+        /* Stream only sheet4.xml inside the XLSX ZIP. Do not materialise the 669 MB
+           worksheet or run XLSX.read on the full workbook. */
+        function createAllLinksWorker() {
+          if (typeof Worker === "undefined" || typeof Blob === "undefined" || !window.URL || !URL.createObjectURL) return null;
+          const workerCode = String.raw`
+            const FFLATE_URL = "https://cdn.jsdelivr.net/npm/fflate@0.8.3/umd/index.js";
+            let total = 0;
+            let batch = [];
+            let headers = {};
+            let pending = "";
+            let completed = false;
+            const utf8 = new TextDecoder("utf-8");
+            const entityMap = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+            function unescapeXML(s) {
+              return String(s || "").replace(/&(#x[0-9a-f]+|#[0-9]+|amp|lt|gt|quot|apos);/gi, (raw, key) => {
+                if (key[0] === '#') {
+                  const n = key[1].toLowerCase() === 'x' ? parseInt(key.slice(2), 16) : parseInt(key.slice(1), 10);
+                  return Number.isFinite(n) && n > 0 && n <= 1114111 ? String.fromCodePoint(n) : raw;
+                }
+                return entityMap[key.toLowerCase()] || raw;
+              });
+            }
+            function keyPart(s) { return String(s || "").replace(/\s+/g, " ").trim().toLowerCase(); }
+            function makeKey(g,c,s,t) { return [g,c,s,t].map(keyPart).join("||"); }
+            function flush() {
+              if (batch.length) { self.postMessage({type:"batch", links:batch}); batch=[]; }
+            }
+            function parseRow(xml) {
+              const cells = {};
+              const cellRe = /<c\b([^>]*)>([\s\S]*?)<\/c>/g;
+              let cm;
+              while ((cm=cellRe.exec(xml))!==null) {
+                const ref = /\br="([A-Z]+)[0-9]+"/.exec(cm[1]);
+                if (!ref) continue;
+                const col=ref[1], content=cm[2];
+                const t=/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/.exec(content);
+                const v=t ? t[1] : ((/<v>([\s\S]*?)<\/v>/.exec(content)||[])[1]||"");
+                cells[col]=unescapeXML(v);
+              }
+              if (!Object.keys(headers).length) {
+                for (const [col,val] of Object.entries(cells)) headers[col]=val.trim();
+                if (!Object.values(headers).includes("source_term") || !Object.values(headers).includes("target_term")) throw new Error("Unexpected column headers in all_linked_terms_ordered");
+                return;
+              }
+              const r={};
+              for (const [col,val] of Object.entries(cells)) if (headers[col]) r[headers[col]]=val;
+              if (!r.source_term || !r.target_term) return;
+              const sourceKey=makeKey(r.source_group,r.source_category,r.source_sub_category,r.source_term);
+              const targetKey=makeKey(r.target_group,r.target_category,r.target_sub_category,r.target_term);
+              batch.push({sourceKey,targetKey,targetGroup:r.target_group||"",targetCategory:r.target_category||"",targetSubCategory:r.target_sub_category||"",targetTerm:r.target_term||"",rank:Number(r.rank)||null,linkId:r.link_id||"",targetTermZh:r.target_term_zh||""});
+              total++;
+              if (batch.length>=5000) flush();
+              if (total%25000===0) self.postMessage({type:"progress",count:total});
+            }
+            function acceptChunk(bytes, final) {
+              pending += utf8.decode(bytes,{stream:!final});
+              let start=0;
+              for (;;) {
+                const a=pending.indexOf("<row ",start);
+                const b=pending.indexOf("<row>",start);
+                const rowStart=a<0?b:b<0?a:Math.min(a,b);
+                if (rowStart<0) { pending=pending.slice(Math.max(0,pending.length-128)); break; }
+                const end=pending.indexOf("</row>",rowStart);
+                if (end<0) { pending=pending.slice(rowStart); break; }
+                parseRow(pending.slice(rowStart,end+6));
+                start=end+6;
+              }
+              if (final && !completed) { completed=true; flush(); self.postMessage({type:"done",count:total}); }
+            }
+            self.onmessage = (event) => {
+              try {
+                importScripts(FFLATE_URL);
+                if (!self.fflate || !self.fflate.Unzip) throw new Error("Streaming ZIP library unavailable");
+                let found=false;
+                const unzip=new fflate.Unzip(file => {
+                  if (file.name!=="xl/worksheets/sheet4.xml") {file.ondata=()=>{}; return;}
+                  found=true;
+                  file.ondata=(err,data,final)=>{
+                    if(err){ self.postMessage({type:"error",message:String(err)});return; }
+                    try {acceptChunk(data,final);}catch(e){self.postMessage({type:"error",message:String(e.message||e)});}
+                  };
+                  file.start();
+                });
+                unzip.register(fflate.AsyncUnzipInflate);
+                const bytes=new Uint8Array(event.data.arrayBuffer);
+                // Split input to keep the stream responsive and limit working allocations.
+                const STEP=1024*1024;
+                for(let i=0;i<bytes.length;i+=STEP) unzip.push(bytes.subarray(i,Math.min(i+STEP,bytes.length)),i+STEP>=bytes.length);
+                if (!found) self.postMessage({type:"error",message:"all_linked_terms_ordered worksheet not found"});
+              } catch (err) {self.postMessage({type:"error",message:err&&err.message?err.message:String(err)});}
+            };
+          `;
+          const blobUrl=URL.createObjectURL(new Blob([workerCode],{type:"application/javascript"}));
+          const worker=new Worker(blobUrl);
+          worker.addEventListener("message",e=>{if(e.data&&["done","error"].includes(e.data.type)) URL.revokeObjectURL(blobUrl);});
+          worker.addEventListener("error",()=>URL.revokeObjectURL(blobUrl),{once:true});
+          return worker;
+        }
+
+        /* 把「英文；英文」与「中文；中文」按序配对；数量不一致时整体配对 */
+        function pairBilingualList(en, zh) {
+          const splitList = (s) => String(s || "").split(/[;；]/).map(x => x.trim()).filter(Boolean);
+          const enList = splitList(en);
+          const zhList = splitList(zh);
+          if (!enList.length) return [];
+          if (!zhList.length) return enList.map(e => ({ en: e, zh: "" }));
+          if (zhList.length === enList.length) {
+            return enList.map((e, i) => ({ en: e, zh: zhList[i] }));
+          }
+          return [{ en: String(en || "").trim(), zh: String(zh || "").trim() }];
+        }
+
+        /* ============================================================
+           检索
+           字段：Category / Sub-category / Term / Definition /
+                 Clarification / References
+           匹配：忽略大小写、连字符、变音符与 & ；-ise 与 -ize、
+                 单复数视为同一形式；全无结果时再放宽一个字符的拼写偏差
+           ============================================================ */
+        const SEARCH_FIELDS = [
+          { key: "category",      label: "Category" },
+          { key: "subcategory",   label: "Sub-category" },
+          { key: "term",          label: "Term" },
+          { key: "definition",    label: "Definition" },
+          { key: "clarification", label: "Clarification" }
+        ];
+
+        const DEFAULT_FIELDS = {
+          category: true, subcategory: true, term: true,
+          definition: true, clarification: false
+        };
+
+        const FIELD_WEIGHT = {
+          category: 0, subcategory: 1, term: 2,
+          definition: 3, clarification: 4
+        };
+
+        function stemToken(token) {
+          let t = token;
+          t = t.replace(/isation$/, "ization")
+               .replace(/ising$/, "izing")
+               .replace(/ised$/, "ized")
+               .replace(/ise$/, "ize")
+               .replace(/yse$/, "yze");
+          if (t.length > 3 && t.endsWith("s") && !t.endsWith("ss")) t = t.slice(0, -1);
+          return t;
+        }
+
+        function splitWords(value) {
+          return String(value || "")
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .replace(/&/g, " and ")
+            .replace(/[^a-z0-9]+/g, " ")
+            .trim()
+            .split(" ")
+            .filter(Boolean);
+        }
+
+        function normaliseForSearch(value) {
+          return " " + splitWords(value).map(stemToken).join(" ") + " ";
+        }
+
+        /* 编辑距离是否不超过 1 */
+        function withinOneEdit(a, b) {
+          if (a === b) return true;
+          const la = a.length, lb = b.length;
+          if (Math.abs(la - lb) > 1) return false;
+          let i = 0, j = 0, edits = 0;
+          while (i < la && j < lb) {
+            if (a[i] === b[j]) { i++; j++; continue; }
+            if (++edits > 1) return false;
+            if (la > lb) i++;
+            else if (lb > la) j++;
+            else { i++; j++; }
+          }
+          return true;
+        }
+
+        function buildSearchIndex(flatCategories) {
+          const entries = [];
+          const add = (entry) => {
+            if (!entry.text) return;
+            entry.norm = normaliseForSearch(entry.text);
+            entry.id = entries.length;
+            entries.push(entry);
+          };
+
+          flatCategories.forEach((c) => {
+            add({ field: "category", level: "Category", text: c.name, zh: c.nameZh, ci: c.ci, subIdx: null, term: null, catName: c.name, subName: null, color: c.color });
+
+            c.subs.forEach((s, si) => {
+              add({ field: "subcategory", level: "Sub-category", text: s.label, zh: s.labelZh, ci: c.ci, subIdx: si, term: null, catName: c.name, subName: s.label, color: c.color });
+
+              s.items.forEach((it) => {
+                const base = { ci: c.ci, subIdx: si, term: it.term, termKey: it.termKey || makeTermKey(c.group, c.name, s.label, it.term), catName: c.name, subName: s.label, color: c.color };
+                add(Object.assign({ field: "term", level: "Term", text: it.term, zh: it.termZh }, base));
+
+                (it.subterms || []).forEach((st) => {
+                  add(Object.assign({ field: "term", level: "Subterm", text: st.en, zh: st.zh }, base));
+                });
+
+                (it.processingUnits || []).forEach((pu) => {
+                  if (pu.name && pu.name !== it.term) {
+                    add(Object.assign({ field: "term", level: "Processing Unit", text: pu.name, zh: pu.nameZh }, base));
+                  }
+                  /* 描述列：页面显示中文，英文原文保留在 text 中供英文检索 */
+                  add(Object.assign({ field: "definition", level: "Definition", text: pu.whatItIsEn || pu.whatItIs, zh: pu.whatItIs }, base));
+                  const clarification = [pu.whatItIsNot, pu.howItIsUsed, pu.howItIsStudied].filter(Boolean).join("\n");
+                  add(Object.assign({ field: "clarification", level: "Clarification", text: pu.clarificationEn || clarification, zh: clarification }, base));
+                });
+              });
+            });
+          });
+
+          return entries;
+        }
+
+        /* 打分：越小越靠前 */
+        function scoreEntry(entry, phrase) {
+          const norm = entry.norm;
+          let quality = 3;
+          if (norm === phrase + " ") quality = 0;
+          else if (norm.indexOf(phrase) === 0) quality = 1;
+          else if (norm.indexOf(phrase) !== -1) quality = 2;
+          return quality * 10 + (FIELD_WEIGHT[entry.field] || 0) + Math.min(4, entry.text.length / 400);
+        }
+
+        /* 中文检索：查询含汉字时，在中文文本中按子串匹配 */
+        const CJK_RE = /[\u3400-\u9fff\uf900-\ufaff]/;
+        function isCjkQuery(q) { return CJK_RE.test(String(q || "")); }
+        function cjkWords(q) {
+          return String(q || "").split(/[\s,，;；、]+/).map(x => x.trim().toLowerCase()).filter(Boolean);
+        }
+        /* 条目在当前查询语言下显示的文本 */
+        function entryText(entry, query) {
+          return isCjkQuery(query) && entry.zh ? entry.zh : entry.text;
+        }
+        function queryWords(q) { return isCjkQuery(q) ? cjkWords(q) : splitWords(q); }
+
+        function runCjkSearch(index, rawQuery, fields, limit) {
+          const words = cjkWords(rawQuery);
+          if (!words.length) return [];
+          const phrase = words.join("");
+          const wanted = index.filter(e => fields[e.field] && e.zh);
+          const lower = (e) => e.zh.toLowerCase();
+          let hits = wanted.filter(e => lower(e).replace(/\s+/g, "").indexOf(phrase) !== -1);
+          if (!hits.length) hits = wanted.filter(e => words.every(w => lower(e).indexOf(w) !== -1));
+          const score = (e) => {
+            const z = lower(e);
+            const q = z === phrase ? 0 : z.indexOf(phrase) === 0 ? 1 : 2;
+            return q * 10 + (FIELD_WEIGHT[e.field] || 0) + Math.min(4, e.zh.length / 200);
+          };
+          hits.sort((a, b) => score(a) - score(b) || a.id - b.id);
+          return limit ? hits.slice(0, limit) : hits;
+        }
+
+        function runSearch(index, rawQuery, fields, limit) {
+          if (isCjkQuery(rawQuery)) return runCjkSearch(index, rawQuery, fields, limit);
+          const stems = splitWords(rawQuery).map(stemToken);
+          if (!stems.length) return [];
+
+          const wanted = index.filter(e => fields[e.field]);
+          const phrase = " " + stems.join(" ");
+
+          /* 一，整串相邻匹配，例如 co-design 只命中 Co-Design 一类 */
+          let hits = wanted.filter(e => e.norm.indexOf(phrase) !== -1);
+
+          /* 二，退而求其次，各词分散出现即可，词首对齐以免 co 命中 concept */
+          if (!hits.length) {
+            hits = wanted.filter(e => stems.every(t => e.norm.indexOf(" " + t) !== -1));
+          }
+
+          /* 三，仍无结果时放宽一个字符的拼写偏差 */
+          if (!hits.length) {
+            hits = wanted.filter((entry) => {
+              const words = entry.norm.trim().split(" ");
+              return stems.every(t => words.some(w => withinOneEdit(w, t)));
+            });
+          }
+
+          hits.sort((a, b) => scoreEntry(a, phrase) - scoreEntry(b, phrase) || a.id - b.id);
+          return limit ? hits.slice(0, limit) : hits;
+        }
+
+        /* 把命中的关键词标出来，并在长文本中截取上下文 */
+        function highlightParts(text, words, contextLength) {
+          const source = String(text || "");
+          const lower = source.toLowerCase();
+          const ranges = [];
+          words.forEach((w) => {
+            if (!w) return;
+            let i = lower.indexOf(w);
+            while (i !== -1) {
+              ranges.push([i, i + w.length]);
+              i = lower.indexOf(w, i + w.length);
+            }
+          });
+          ranges.sort((a, b) => a[0] - b[0]);
+
+          const merged = [];
+          ranges.forEach((r) => {
+            const last = merged[merged.length - 1];
+            if (last && r[0] <= last[1]) last[1] = Math.max(last[1], r[1]);
+            else merged.push(r.slice());
+          });
+
+          let start = 0, end = source.length, prefix = "", suffix = "";
+          if (contextLength && source.length > contextLength) {
+            const anchor = merged.length ? merged[0][0] : 0;
+            start = Math.max(0, anchor - Math.floor(contextLength / 3));
+            end = Math.min(source.length, start + contextLength);
+            if (start > 0) prefix = "… ";
+            if (end < source.length) suffix = " …";
+          }
+
+          const nodes = [];
+          let cursor = start;
+          merged.forEach(([a, b], k) => {
+            if (b <= start || a >= end) return;
+            const from = Math.max(a, start), to = Math.min(b, end);
+            if (from > cursor) nodes.push(source.slice(cursor, from));
+            nodes.push(<mark key={k} className="search-mark">{source.slice(from, to)}</mark>);
+            cursor = to;
+          });
+          if (cursor < end) nodes.push(source.slice(cursor, end));
+
+          return [prefix, ...nodes, suffix];
+        }
+
+        /* ============================================================
+           buildStructure — 单层结构：Category 按原表顺序平铺
+           颜色仍按 Group 依次取自 31 色渐变色板
+           ============================================================ */
+        function buildStructure(rows) {
+          const flatCategories = [];
+          let currentGroup = "";
+          let colorIndex = -1;
+          let currentColor = CLASSIC_GRADIENT_PALETTE_31[0];
+
+          rows.forEach((row, idx) => {
+            if (row.Group !== currentGroup) {
+              currentGroup = row.Group;
+              colorIndex = (colorIndex + 1) % CLASSIC_GRADIENT_PALETTE_31.length;
+              currentColor = CLASSIC_GRADIENT_PALETTE_31[colorIndex];
+            }
+
+            let cat = flatCategories.find(c => c.name === row.Category && c.group === currentGroup);
+            if (!cat) {
+              cat = {
+                key: `${idx}-${row.Category}`,
+                name: row.Category,
+                nameZh: row.CategoryZh,
+                color: currentColor,
+                group: currentGroup,
+                subs: [],
+                ci: flatCategories.length
+              };
+              flatCategories.push(cat);
+            }
+
+            let sc = cat.subs.find(s => s.label === row.Subcategory);
+            if (!sc) {
+              sc = { label: row.Subcategory, labelZh: row.SubcategoryZh, color: cat.color, items: [] };
+              cat.subs.push(sc);
+            }
+
+            let item = sc.items.find(it => it.term === row.Term);
+            if (!item) {
+              item = {
+                term: row.Term,
+                termZh: row.TermZh,
+                group: currentGroup,
+                category: row.Category,
+                subcategory: row.Subcategory,
+                termKey: makeTermKey(currentGroup, row.Category, row.Subcategory, row.Term),
+                subterms: [],
+                processingUnits: []
+              };
+              sc.items.push(item);
+            }
+
+            if (row.Subterm) {
+              pairBilingualList(row.Subterm, row.SubtermZh).forEach(pair => {
+                if (!item.subterms.some(s => s.en === pair.en)) item.subterms.push(pair);
+              });
+            }
+
+            if (row.ProcessingUnit && !item.processingUnits.some(pu => pu.name === row.ProcessingUnit)) {
+              item.processingUnits.push({
+                name: row.ProcessingUnit,
+                nameZh: row.ProcessingUnitZh,
+                whatItIs: row.WhatItIs || '',
+                whatItIsNot: row.WhatItIsNot || '',
+                howItIsUsed: row.HowItIsUsed || '',
+                howItIsStudied: row.HowItIsStudied || '',
+                whatItIsEn: row.WhatItIsEn || '',
+                clarificationEn: [row.WhatItIsNotEn, row.HowItIsUsedEn, row.HowItIsStudiedEn].filter(Boolean).join("\n"),
+                references: row.References || ''
+              });
+            }
+          });
+
+          return { flatCategories };
+        }
+
+        function useParsedData(rows) {
+          return useMemo(() => {
+            if (!rows || !rows.length) return { flatCategories: [], count: 0 };
+            const { flatCategories } = buildStructure(rows);
+            console.log("Parsed categories:", flatCategories.length);
+            return { flatCategories, count: flatCategories.length };
+          }, [rows]);
+        }
+
+        /* 划选文字后不应触发点击：记录按下位置，移动超过 4px
+           或松开时存在选区，就把这次点击视为选字而非点击 */
+        let pointerDownAt = null;
+        function markPointerDown(e) {
+          pointerDownAt = { x: e.clientX, y: e.clientY };
+        }
+        function isDragOrSelection(e) {
+          const from = pointerDownAt;
+          pointerDownAt = null;
+          if (from && (Math.abs(e.clientX - from.x) > 4 || Math.abs(e.clientY - from.y) > 4)) return true;
+          const sel = window.getSelection ? window.getSelection() : null;
+          return !!(sel && !sel.isCollapsed && String(sel).length > 0);
+        }
+
+        /* 双语版：Sub-category 方块内英文加中文放不下时，整体等比缩小直至放下（最小 0.72） */
+        const FitBox = ({ className, children }) => {
+          const ref = React.useRef(null);
+          React.useLayoutEffect(() => {
+            const el = ref.current;
+            if (!el || !el.parentElement) return;
+            el.style.zoom = 1;
+            const box = el.parentElement;
+            for (let k = 0; k < 4; k++) {
+              const avail = box.clientHeight;
+              const need = el.offsetHeight * (parseFloat(el.style.zoom) || 1);
+              if (need <= avail) break;
+              const z = Math.max(0.72, (parseFloat(el.style.zoom) || 1) * avail / need * 0.98);
+              el.style.zoom = z;
+            }
+          });
+          return <div ref={ref} className={className}>{children}</div>;
+        };
+
+        /* 首页卡片的中文名默认 14px；过长时按卡片内宽缩小字号，保证一行放下 */
+        function fitZhCardSize(zh) {
+          const len = String(zh || "").length;
+          if (len <= 14) return "14px";
+          return Math.max(11, Math.floor(186 / len * 10) / 10) + "px";
+        }
+
+        /* 双语显示：英文在上，中文在下 */
+        const Bi = ({ en, zh, enClass = "", zhClass = "", zhStyle }) => (
+          <React.Fragment>
+            <div className={enClass}>{en}</div>
+            {zh && zh !== en ? <div className={zhClass} style={zhStyle}>{zh}</div> : null}
+          </React.Fragment>
+        );
+
+
+        function getFixedPositionsRect(centerW, centerH) {
+          const subH = Math.round(centerH * 0.68);
+          const subW = Math.round(centerW * 0.68);
+
+          const maxSlots = 13;
+          const positions = [];
+
+          const margin = 20;
+
+          const baseRadiusX = centerW / 2 + subW / 2 + margin;
+          const baseRadiusY = centerH / 2 + subH / 2 + margin;
+
+          const radiusScaleX = 1.5;
+          const radiusScaleY = 2.0;
+
+          const radiusX = baseRadiusX * radiusScaleX;
+          const radiusY = baseRadiusY * radiusScaleY;
+
+          const step = (2 * Math.PI) / maxSlots;
+          const offsetFactor = 0.37;
+          const angleOffset = step * offsetFactor;
+
+          for (let i = 0; i < maxSlots; i++) {
+            const angle = -Math.PI / 2 + angleOffset + step * i;
+            const x = Math.round(Math.cos(angle) * radiusX);
+            const y = Math.round(Math.sin(angle) * radiusY);
+            positions.push({ x, y });
+          }
+
+          return { positions, subW, subH };
+        }
+
+        const ContactDrawer = ({ isOpen, onClose }) => {
+            return (
+                <div
+                    className={`fullscreen-layer contact-drawer-overlay transition-opacity ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                    onClick={onClose}
+                >
+                    <div
+                        className={`contact-drawer ${isOpen ? 'is-open' : ''} flex flex-col`}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex-shrink-0 px-4 py-2.5 border-b border-slate-100 flex justify-between items-center">
+                            <h2 className="text-sm font-bold text-slate-900">Contact Us</h2>
+                            <button
+                                onClick={onClose}
+                                className="text-slate-500 hover:text-slate-900 text-xl leading-none"
+                            >
+                                &times;
+                            </button>
+                        </div>
+
+                        <div className="flex-grow overflow-y-auto px-4 py-3 text-slate-800">
+                            <div className="space-y-2.5 text-[11.5px] leading-relaxed">
+                                <h3 className="text-sm font-bold mb-1.5">Contribute to the MMD</h3>
+
+                                <p>
+                                    <strong>The Mega-Map of Design (MMD)</strong> aims to serve as a foundational knowledge
+                                    infrastructure for the design field by presenting an ever-evolving panoramic
+                                    map of contemporary design research. To keep the MMD accurate, comprehensive,
+                                    and up to date, we warmly invite researchers from around the world to contribute
+                                    to its ongoing development.
+                                </p>
+
+                                <h3 className="font-semibold text-xs pt-1">We encourage every researcher to support the MMD in the following ways:</h3>
+
+                                <p>
+                                    <strong>Report inaccuracies:</strong><br />
+                                    If you notice any errors, inconsistencies, or questionable information while
+                                    browsing the MMD, please contact the management team so that corrections can be
+                                    made promptly.
+                                </p>
+
+                                <p>
+                                    <strong>Suggest missing areas:</strong><br />
+                                    If your own area of expertise, especially new or emerging domains, has not yet
+                                    been included in the MMD, please reach out to recommend its inclusion.
+                                </p>
+
+                                <p className="pt-2">
+                                    You may <strong>contact the management team via email</strong> at:<br />
+                                    <code className="bg-slate-100 px-1.5 py-0.5 rounded font-mono text-[11.5px] inline-block mt-1">
+                                        xxxxxxxxxxxx@xxxxxx
+                                    </code>
+                                    <br />
+                                    <span className="text-[10.5px] text-slate-500 italic">
+                                        (The email addresses above are currently replaced with placeholders to
+                                        facilitate double-blind peer review. They will be restored after the review
+                                        process is completed.)
+                                    </span>
+                                </p>
+
+                                <p className="pt-2">
+                                    When submitting suggestions, please clearly indicate the content you believe
+                                    should be corrected or added, and <strong>provide supporting literature</strong> to help
+                                    the management team assess the reliability of your contribution as efficiently
+                                    as possible.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        /* ============================================================
+           ProcessingUnitBlock — 渲染单个 Processing Unit 的内容
+           singlePU: 是否只有一个 PU（如果是，不显示 PU 名称标题）
+           Clarification 按钮：What it is not / How it is used / How it is studied
+           ============================================================ */
+        const ProcessingUnitBlock = ({ pu, singlePU, textColor }) => {
+          const [showClarification, setShowClarification] = useState(false);
+
+          const hasClarification = pu.whatItIsNot || pu.howItIsUsed || pu.howItIsStudied;
+
+          // 渲染多行文本：按换行符 或 bullet 符号（•）拆行
+          const renderText = (text) => {
+            if (!text) return null;
+            const raw = text.split(/\r?\n/);
+            const lines = [];
+            raw.forEach(seg => {
+              const parts = seg.split(/(?=•)/);
+              parts.forEach(p => {
+                const trimmed = p.trim();
+                if (trimmed) lines.push(trimmed);
+              });
+            });
+            return lines.map((line, i) => {
+              if (line.startsWith('•')) {
+                return (
+                  <div key={i} className="mb-1.5 leading-relaxed flex">
+                    <span className="flex-shrink-0 mr-1">•</span>
+                    <span>{line.slice(1).trim()}</span>
+                  </div>
+                );
+              }
+              return (
+                <div key={i} className="mb-1.5 leading-relaxed">{line}</div>
+              );
+            });
+          };
+
+          const toggleStyle = {
+            background: hexToRgba(textColor, 0.12),
+            color: textColor,
+          };
+
+          return (
+            <div className="mt-2">
+              {/* 如果有多个 PU，显示 PU 名称作为子标题（英文 + 中文） */}
+              {!singlePU && pu.name && (
+                <div className="mb-1 mt-3 opacity-90"
+                     style={{ borderBottom: `1px solid ${hexToRgba(textColor, 0.2)}`, paddingBottom: '4px' }}>
+                  <Bi
+                    en={pu.name}
+                    zh={pu.nameZh}
+                    enClass="text-sm font-bold italic leading-snug"
+                    zhClass="text-xs font-semibold leading-snug opacity-90"
+                  />
+                </div>
+              )}
+
+              {/* What it is（中文）—— 始终显示，不带标题 */}
+              {pu.whatItIs && (
+                <div className="text-[13px] leading-relaxed mt-1 opacity-90">
+                  {renderText(pu.whatItIs)}
+                </div>
+              )}
+
+              {/* Clarification */}
+              {hasClarification && (
+                <div className="flex justify-end gap-2 mt-1 flex-wrap">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setShowClarification(!showClarification); }}
+                    className="text-[11px] font-semibold px-2.5 py-0.5 rounded-lg transition-all hover:opacity-80"
+                    style={toggleStyle}
+                  >
+                    {showClarification ? 'Clarification ▴' : 'Clarification ▾'}
+                  </button>
+                </div>
+              )}
+
+              {/* Clarification 展开区域 */}
+              <div className={`pu-expand-section ${showClarification ? 'is-expanded' : ''}`}>
+                {pu.whatItIsNot && (
+                  <div className="mt-3">
+                    <div className="text-xs font-normal italic mb-1 opacity-80">What it is not</div>
+                    <div className="text-[11px] leading-relaxed opacity-90">{renderText(pu.whatItIsNot)}</div>
+                  </div>
+                )}
+                {pu.howItIsUsed && (
+                  <div className="mt-3">
+                    <div className="text-xs font-normal italic mb-1 opacity-80">How it is used</div>
+                    <div className="text-[11px] leading-relaxed opacity-90">{renderText(pu.howItIsUsed)}</div>
+                  </div>
+                )}
+                {pu.howItIsStudied && (
+                  <div className="mt-3">
+                    <div className="text-xs font-normal italic mb-1 opacity-80">How it is studied</div>
+                    <div className="text-[11px] leading-relaxed opacity-90">{renderText(pu.howItIsStudied)}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        };
+
+
+        /* ============================================================
+           顶部检索栏：输入即联想，回车或点击放大镜出结果
+           ============================================================ */
+        const SearchBar = ({
+          query, setQuery, fields, setFields,
+          suggestions, onPick, onSubmit, onClear, hasResults, resultCount
+        }) => {
+          const [showFields, setShowFields] = useState(false);
+          const [showSuggest, setShowSuggest] = useState(false);
+          const [cursor, setCursor] = useState(-1);
+
+          const toggleField = (key) => {
+            setFields(prev => Object.assign({}, prev, { [key]: !prev[key] }));
+          };
+
+          const handleKey = (e) => {
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setShowSuggest(true);
+              setCursor(c => Math.min(c + 1, suggestions.length - 1));
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setCursor(c => Math.max(c - 1, -1));
+            } else if (e.key === "Enter") {
+              if (cursor >= 0 && suggestions[cursor]) {
+                onPick(suggestions[cursor]);
+                setShowSuggest(false);
+              } else {
+                onSubmit();
+                setShowSuggest(false);
+              }
+            } else if (e.key === "Escape") {
+              setShowSuggest(false);
+              setShowFields(false);
+            }
+          };
+
+          const activeFieldCount = SEARCH_FIELDS.filter(f => fields[f.key]).length;
+
+          return (
+            <div className="search-bar-wrapper">
+              <div className="search-input-row">
+                <span className="search-icon">⌕</span>
+                <input
+                  type="text"
+                  value={query}
+                  placeholder="Search the map"
+                  className="search-input"
+                  onChange={(e) => { setQuery(e.target.value); setShowSuggest(true); setCursor(-1); }}
+                  onFocus={() => setShowSuggest(true)}
+                  onKeyDown={handleKey}
+                />
+                {query && (
+                  <button className="search-clear" onClick={onClear} aria-label="clear search">×</button>
+                )}
+                <button
+                  className="search-fields-toggle"
+                  onClick={() => { setShowFields(!showFields); setShowSuggest(false); }}
+                >
+                  Fields {activeFieldCount}/{SEARCH_FIELDS.length}
+                </button>
+                <button className="search-go" onClick={() => { onSubmit(); setShowSuggest(false); }}>
+                  Search
+                </button>
+              </div>
+
+              {hasResults && (
+                <div className="search-count">{resultCount} matches</div>
+              )}
+
+              {showFields && (
+                <div className="search-popover">
+                  {SEARCH_FIELDS.map(f => (
+                    <label key={f.key} className="search-field-row">
+                      <input type="checkbox" checked={!!fields[f.key]} onChange={() => toggleField(f.key)} />
+                      <span>{f.label}</span>
+                    </label>
+                  ))}
+                  <div className="search-field-note">Term covers subterms and processing unit names.</div>
+                </div>
+              )}
+
+              {showSuggest && query && suggestions.length > 0 && (
+                <div className="search-popover search-suggest">
+                  {suggestions.map((s, i) => (
+                    <button
+                      key={s.id}
+                      className={`search-suggest-row ${i === cursor ? 'is-active' : ''}`}
+                      onMouseDown={(e) => { e.preventDefault(); onPick(s); setShowSuggest(false); }}
+                    >
+                      <span className="search-suggest-dot" style={{ background: s.color }} />
+                      <span className="search-suggest-text">
+                        {highlightParts(entryText(s, query), queryWords(query), 0)}
+                      </span>
+                      <span className="search-suggest-level">{s.level}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        };
+
+        /* ============================================================
+           结果面板：按字段分组，点击任一条目直接定位
+           ============================================================ */
+        const SearchResultsPanel = ({ query, results, onPick, onClose }) => {
+          const words = queryWords(query);
+          const grouped = SEARCH_FIELDS
+            .map(f => ({ field: f, rows: results.filter(r => r.field === f.key) }))
+            .filter(g => g.rows.length);
+
+          return (
+            <div className="fullscreen-layer z-40 bg-slate-900/50 backdrop-blur-sm flex items-start justify-center"
+                 onClick={onClose}>
+              <div className="search-results" onClick={(e) => e.stopPropagation()}>
+                <div className="search-results-head">
+                  <div>
+                    <span className="font-bold">{results.length}</span> matches for
+                    <span className="font-bold"> “{query}”</span>
+                  </div>
+                  <button className="search-results-close" onClick={onClose} aria-label="close results">×</button>
+                </div>
+
+                <div className="search-results-body">
+                  {grouped.length === 0 && (
+                    <div className="search-empty">No match. Try fewer words, or switch on more fields.</div>
+                  )}
+
+                  {grouped.map(g => (
+                    <div key={g.field.key} className="search-group">
+                      <div className="search-group-head">{g.field.label} · {g.rows.length}</div>
+                      {g.rows.slice(0, 60).map(r => (
+                        <button key={r.id} className="search-row" onClick={() => onPick(r)}>
+                          <span className="search-row-dot" style={{ background: r.color }} />
+                          <span className="search-row-main">
+                            <span className="search-row-path">
+                              {r.catName}{r.subName ? ' › ' + r.subName : ''}{r.term && r.level !== 'Term' ? ' › ' + r.term : ''}
+                            </span>
+                            <span className="search-row-text">
+                              {highlightParts(entryText(r, query), words, r.field === 'category' || r.field === 'subcategory' || r.field === 'term' ? 0 : 220)}
+                            </span>
+                          </span>
+                          <span className="search-row-level">{r.level}</span>
+                        </button>
+                      ))}
+                      {g.rows.length > 60 && (
+                        <div className="search-more">{g.rows.length - 60} more not shown</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+
+        const LinkedTermsStrip = ({ recommendedLinks, allLinks, showAll, onPreview }) => {
+          const topLinks = (recommendedLinks && recommendedLinks.length ? recommendedLinks : allLinks || []).slice(0, 10);
+          const expandedLinks = allLinks || [];
+          const renderTag = (link, idx, compact = false) => {
+            return (
+              <button
+                key={`${link.targetKey || link.linkId || idx}-${idx}`}
+                className="linked-term-tag"
+                title={`${link.targetTerm}${link.targetCategory ? ' / ' + link.targetCategory : ''}`}
+                onClick={(e) => { e.stopPropagation(); onPreview(link); }}
+              >
+                {link.targetTerm}
+              </button>
+            );
+          };
+          if (!topLinks.length) return null;
+          return (
+            <div onClick={(e) => e.stopPropagation()}>
+              <div className="linked-term-strip">
+                {topLinks.map((link, idx) => renderTag(link, idx))}
+              </div>
+              {showAll && expandedLinks.length > 0 && (
+                <div className="linked-term-expanded">
+                  <div className="linked-term-expanded-title">All linked terms · {expandedLinks.length}</div>
+                  <div className="linked-term-strip mt-0">
+                    {expandedLinks.map((link, idx) => renderTag(link, idx, true))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        };
+
+        const LinkedTermPreview = ({ link, onClose, onOpen }) => {
+          if (!link) return null;
+          const bg = link.targetColor || "#e2e8f0";
+          const fg = getTextColorForBackground(bg);
+          return (
+            <div className="linked-term-preview-overlay" onClick={onClose}>
+              <div className="linked-term-preview-card" onClick={(e) => e.stopPropagation()}>
+                <div className="linked-term-preview-header">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="inline-flex items-center gap-2 mb-2">
+                        <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ background: bg }} />
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Linked term</span>
+                      </div>
+                      <Bi
+                        en={link.targetTerm}
+                        zh={link.targetTermZh}
+                        enClass="text-lg font-extrabold leading-snug text-slate-900"
+                        zhClass="text-sm font-semibold leading-snug text-slate-600 mt-0.5"
+                      />
+                      <div className="linked-term-preview-path">
+                        {link.targetGroup}{link.targetCategory ? ` · ${link.targetCategory}` : ""}{link.targetSubCategory ? ` · ${link.targetSubCategory}` : ""}
+                      </div>
+                    </div>
+                    <button className="text-slate-400 hover:text-slate-900 text-xl leading-none" onClick={onClose}>×</button>
+                  </div>
+                </div>
+                <div className="linked-term-preview-body">
+                  {link.definition ? (
+                    <div className="linked-term-preview-definition">{link.definition}</div>
+                  ) : link.justification ? (
+                    <div className="linked-term-preview-definition">{link.justification}</div>
+                  ) : (
+                    <div className="text-sm text-slate-400">No short definition is available for this linked term.</div>
+                  )}
+                  <div className="linked-term-preview-meta">
+                    {link.recommendationScore !== null && link.recommendationScore !== undefined && (
+                      <span className="linked-term-preview-pill">Score {Number(link.recommendationScore).toFixed(4)}</span>
+                    )}
+                    {link.strength && <span className="linked-term-preview-pill">{link.strength}</span>}
+                    {link.hierarchicalDistance && <span className="linked-term-preview-pill">{link.hierarchicalDistance}</span>}
+                  </div>
+                </div>
+                <div className="linked-term-preview-actions">
+                  <button className="px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100" onClick={onClose}>Close</button>
+                  <button className="px-4 py-1.5 rounded-lg text-sm font-bold text-white" style={{ background: bg, color: fg }} onClick={onOpen}>Open</button>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        const HistoryPanel = ({ items, onPick }) => {
+          const panelRef = React.useRef(null);
+          const dragRef = React.useRef(null);
+
+          const onDragStart = (e) => {
+            if (e.button !== 0 && e.pointerType === "mouse") return;
+            const panel = panelRef.current;
+            if (!panel) return;
+            const zoom = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--scale")) || 1;
+            const bounds = panel.getBoundingClientRect();
+            dragRef.current = {
+              pointerId: e.pointerId,
+              startX: e.clientX,
+              startY: e.clientY,
+              left: bounds.left / zoom,
+              top: bounds.top / zoom,
+              zoom
+            };
+            panel.style.left = `${bounds.left / zoom}px`;
+            panel.style.top = `${bounds.top / zoom}px`;
+            panel.style.right = "auto";
+            e.currentTarget.setPointerCapture(e.pointerId);
+            e.currentTarget.style.cursor = "grabbing";
+            e.preventDefault();
+          };
+          const onDragMove = (e) => {
+            const drag = dragRef.current;
+            const panel = panelRef.current;
+            if (!drag || !panel || e.pointerId !== drag.pointerId) return;
+            const zoom = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--scale")) || drag.zoom;
+            const width = panel.offsetWidth;
+            const height = panel.offsetHeight;
+            const maxLeft = Math.max(0, window.innerWidth / zoom - width);
+            const maxTop = Math.max(0, window.innerHeight / zoom - height);
+            const left = drag.left + (e.clientX - drag.startX) / zoom;
+            const top = drag.top + (e.clientY - drag.startY) / zoom;
+            panel.style.left = `${Math.min(maxLeft, Math.max(0, left))}px`;
+            panel.style.top = `${Math.min(maxTop, Math.max(0, top))}px`;
+          };
+          const onDragEnd = (e) => {
+            if (!dragRef.current || e.pointerId !== dragRef.current.pointerId) return;
+            dragRef.current = null;
+            e.currentTarget.style.cursor = "";
+            if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+          };
+
+          if (!items || !items.length) return null;
+          return (
+            <div ref={panelRef} className="history-panel" onClick={(e) => e.stopPropagation()}>
+              <div className="history-title" title="Drag to move History panel"
+                   onPointerDown={onDragStart} onPointerMove={onDragMove}
+                   onPointerUp={onDragEnd} onPointerCancel={onDragEnd}>History <span style={{float: "right", fontSize: "13px", lineHeight: "10px", opacity: 0.6}}>⠿</span></div>
+              {items.map((item, idx) => (
+                <button key={`${item.termKey}-${idx}`} className="history-row" onClick={() => onPick(item)} title={item.term}>
+                  <span className="history-dot" style={{ background: item.color || "#cbd5e1" }} />
+                  <span className="history-main">
+                    <span className="history-term">{item.term}</span>
+                    <span className="history-path">{item.category}{item.subcategory ? ` · ${item.subcategory}` : ""}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          );
+        };
+
+        /* ============================================================
+           TermItem — 面板中每个 Term 的折叠/展开容器
+           默认折叠，点击小三角展开 subterms + PU 内容
+           Term 与 Subterm 均为「英文 + 中文」显示
+           ============================================================ */
+        const TermItem = ({ it, panelTextColor, borderColor, isTarget, targetTermKey, targetNonce, recommendedLinks, allLinks, allLinksReady, onPreviewLink, onVisitTerm, meta }) => {
+          const [open, setOpen] = useState(!!isTarget);
+          const [showAllLinks, setShowAllLinks] = useState(false);
+          const nodeRef = React.useRef(null);
+          const hasLinks = (allLinks && allLinks.length) || (recommendedLinks && recommendedLinks.length);
+
+          useEffect(() => {
+            if (!targetTermKey) return;
+            setOpen(!!isTarget);
+            if (isTarget) {
+              const node = nodeRef.current;
+              const scroller = node && node.closest ? node.closest('.term-panel-content') : null;
+              if (node && scroller && scroller.scrollTo) {
+                const nodeRect = node.getBoundingClientRect();
+                const scrollerRect = scroller.getBoundingClientRect();
+                const targetTop = scroller.scrollTop + (nodeRect.top - scrollerRect.top) - 8;
+                scroller.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+              } else if (node && node.scrollIntoView) {
+                node.scrollIntoView({ block: "nearest", behavior: "smooth" });
+              }
+            }
+          }, [targetNonce, targetTermKey, isTarget]);
+
+          const linkedTermsButton = hasLinks && allLinksReady && allLinks && allLinks.length ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowAllLinks(!showAllLinks); }}
+              className="linked-term-button"
+              style={{ background: hexToRgba(panelTextColor, 0.12), color: panelTextColor }}
+            >
+              {showAllLinks ? 'All linked terms ▴' : `All linked terms ▾`}
+            </button>
+          ) : null;
+
+          const linkedTermsArea = hasLinks ? (
+            <div className="term-linked-terms-area" onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-end mt-3 mb-1">
+                {linkedTermsButton}
+              </div>
+              <LinkedTermsStrip
+                recommendedLinks={recommendedLinks || []}
+                allLinks={allLinks || []}
+                showAll={showAllLinks}
+                onPreview={onPreviewLink}
+              />
+            </div>
+          ) : null;
+
+          const openTerm = (e) => {
+            e.stopPropagation();
+            if (isDragOrSelection(e)) return;
+            const nextOpen = !open;
+            setOpen(nextOpen);
+            if (nextOpen && onVisitTerm && meta) onVisitTerm(meta);
+          };
+
+          return (
+            <div
+              ref={nodeRef}
+              className="mb-4 pb-3"
+              style={{
+                borderBottom: `1px solid ${borderColor}`
+              }}
+            >
+              {it.term && (
+                <div
+                  className="flex items-start justify-between cursor-pointer"
+                  onMouseDown={markPointerDown}
+                  onClick={openTerm}
+                >
+                  <div className="mb-1 flex-1 pr-2">
+                    <Bi
+                      en={it.term}
+                      zh={it.termZh}
+                      enClass="text-[15px] font-bold leading-snug"
+                      zhClass="text-xs font-semibold leading-snug opacity-90"
+                    />
+                  </div>
+                  <span
+                    className="flex-shrink-0 mt-1.5 text-xs transition-transform duration-200"
+                    style={{
+                      display: 'inline-block',
+                      transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+                      opacity: 0.6,
+                    }}
+                  >
+                    ▼
+                  </span>
+                </div>
+              )}
+
+              {open && (
+                <div>
+                  {it.subterms && it.subterms.length ? (
+                    <ul className="mt-2 opacity-95 list-none space-y-1.5">
+                      {it.subterms.map((sub, j) => (
+                        <li key={j} className="flex">
+                          <span className="mr-2 flex-shrink-0 text-sm">–</span>
+                          <span className="flex-1">
+                            <Bi
+                              en={sub.en}
+                              zh={sub.zh}
+                              enClass="text-[13px] leading-snug"
+                              zhClass="text-[11px] leading-snug opacity-85"
+                            />
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+
+                  {it.processingUnits && it.processingUnits.length > 0 && (
+                    <div className="mt-2">
+                      {it.processingUnits.map((pu, k) => (
+                        <ProcessingUnitBlock
+                          key={k}
+                          pu={pu}
+                          singlePU={it.processingUnits.length === 1}
+                          textColor={panelTextColor}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {linkedTermsArea}
+                </div>
+              )}
+            </div>
+          );
+        };
+
+
+        function DesignMapPage() {
+          const [rows, setRows] = useState([]);
+          const [recommendedLinks, setRecommendedLinks] = useState([]);
+          const [allLinksBySourceRaw, setAllLinksBySourceRaw] = useState({});
+          const [allLinksStatus, setAllLinksStatus] = useState("idle");
+          const allLinksWorkerRef = React.useRef(null);
+          const workbookBufferRef = React.useRef(null);
+          const [loadStatus, setLoadStatus] = useState("loading");
+          const [loadError, setLoadError] = useState("");
+          const { flatCategories, count } = useParsedData(rows);
+          const [active, setActive] = useState(null);
+          const [detailIdx, setDetailIdx] = useState(null);
+          const [isContactOpen, setIsContactOpen] = useState(false);
+          const [vh, setVh] = useState(800);
+          const [scale, setScale] = useState(1);
+          const [query, setQuery] = useState("");
+          const [fields, setFields] = useState(DEFAULT_FIELDS);
+          const [submittedQuery, setSubmittedQuery] = useState("");
+          const [isResultsOpen, setIsResultsOpen] = useState(false);
+          const [targetTerm, setTargetTerm] = useState(null);
+          const [targetTermKey, setTargetTermKey] = useState(null);
+          const [targetNonce, setTargetNonce] = useState(0);
+          const [isPanelClosing, setIsPanelClosing] = useState(false);
+          const [isDetailLayoutActive, setIsDetailLayoutActive] = useState(false);
+          const [previewLink, setPreviewLink] = useState(null);
+          const [termHistory, setTermHistory] = useState([]);
+
+          const [allLinksProgress, setAllLinksProgress] = useState(0);
+          const [allLinksError, setAllLinksError] = useState("");
+          const allLinksAccumRef = React.useRef({});
+          const loadAllLinkedTerms = useCallback(() => {
+            const arrayBuffer = workbookBufferRef.current;
+            if (!arrayBuffer || allLinksStatus === "loading" || allLinksStatus === "ready") return;
+            if (allLinksWorkerRef.current) {
+              try { allLinksWorkerRef.current.terminate(); } catch (_) {}
+              allLinksWorkerRef.current = null;
+            }
+            setAllLinksBySourceRaw({});
+            allLinksAccumRef.current = {};
+            setAllLinksProgress(0);
+            setAllLinksError("");
+            setAllLinksStatus("loading");
+
+            let worker;
+            try { worker=createAllLinksWorker(); } catch(err) {
+              setAllLinksError(String(err && err.message || err));
+              setAllLinksStatus("error");
+              return;
+            }
+            if (!worker) {
+              setAllLinksError("Web Workers are unavailable in this browser.");
+              setAllLinksStatus("error");
+              return;
+            }
+            allLinksWorkerRef.current = worker;
+            const stop=()=>{
+              try { worker.terminate(); } catch (_) {}
+              if (allLinksWorkerRef.current === worker) allLinksWorkerRef.current=null;
+            };
+            worker.onmessage = event => {
+              const data=event.data||{};
+              if (data.type === "batch") {
+                for (const link of (data.links||[])) {
+                  const map=allLinksAccumRef.current;
+                  if (!map[link.sourceKey]) map[link.sourceKey]=[];
+                  map[link.sourceKey].push(link);
+                }
+              } else if (data.type === "progress") {
+                setAllLinksProgress(data.count || 0);
+              } else if (data.type === "done") {
+                if (!data.count) {setAllLinksError("No links were parsed from the sheet.");setAllLinksStatus("error");stop();return;}
+                const grouped=allLinksAccumRef.current;
+                for (const arr of Object.values(grouped)) arr.sort((a,b)=>(a.rank||999999)-(b.rank||999999));
+                setAllLinksBySourceRaw(grouped);
+                setAllLinksProgress(data.count || 0);
+                setAllLinksStatus("ready");
+                stop();
+              } else if (data.type === "error") {
+                console.error("All linked terms loading failed:",data.message);
+                setAllLinksError(data.message||"Unknown error");
+                setAllLinksStatus("error");
+                stop();
+              }
+            };
+            worker.onerror = err => {
+              console.error("All linked terms worker error",err);
+              setAllLinksError(err.message||"Worker error. Check the browser console.");
+              setAllLinksStatus("error");
+              stop();
+            };
+            // Keep the original buffer so an interrupted transfer can be retried.
+            const workerBuffer=arrayBuffer.slice(0);
+            worker.postMessage({arrayBuffer:workerBuffer},[workerBuffer]);
+          }, [allLinksStatus]);
+
+          useEffect(() => () => {
+            if (allLinksWorkerRef.current) {
+              try { allLinksWorkerRef.current.terminate(); } catch (_) {}
+              allLinksWorkerRef.current = null;
+            }
+          }, []);
+
+          /* 启动时读取同目录下的 mmd.xlsx */
+          useEffect(() => {
+            let cancelled = false;
+
+            (async () => {
+              /* 本地双击打开（file://）：不自动加载，等待用户选择 mmd.xlsx */
+              if (IS_LOCAL_FILE) {
+                setLoadStatus("await-file");
+                return;
+              }
+
+              let lastError = "";
+              for (const candidate of DATA_CANDIDATES) {
+                const url = `${candidate}?v=${DATA_VERSION}`;
+                try {
+                  const res = await fetch(url);
+                  if (!res.ok) { lastError = `${candidate} → HTTP ${res.status}`; continue; }
+                  const arrayBuffer = await res.arrayBuffer();
+                  const parsed = await parseInitialWorkbook(arrayBuffer);
+                  if (cancelled) return;
+                  if (!parsed.rows || !parsed.rows.length) { lastError = `${candidate} → no usable rows`; continue; }
+                  setRows(parsed.rows);
+                  setRecommendedLinks(parsed.recommendedLinks || []);
+                  workbookBufferRef.current = arrayBuffer;
+                  setAllLinksBySourceRaw({});
+                  setAllLinksStatus("idle");
+                  setLoadStatus("ready");
+                  return;
+                } catch (err) {
+                  lastError = `${candidate} → ${err && err.message ? err.message : err}`;
+                  console.warn("Failed to load", url, err);
+                }
+              }
+
+              if (!cancelled) {
+                setLoadError(lastError);
+                setLoadStatus("error");
+              }
+            })();
+
+            return () => { cancelled = true; };
+          }, []);
+
+          /* 备用入口：本地双击打开时浏览器禁止读取同目录文件，改为手动选择 */
+          const handleFileSelect = (event) => {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            setLoadStatus("loading");
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+              try {
+                const arrayBuffer = e.target.result;
+                const parsed = await parseInitialWorkbook(arrayBuffer);
+                if (!parsed.rows || !parsed.rows.length) throw new Error("no usable rows");
+                setRows(parsed.rows);
+                setRecommendedLinks(parsed.recommendedLinks || []);
+                workbookBufferRef.current = arrayBuffer;
+                setAllLinksBySourceRaw({});
+                setAllLinksStatus("idle");
+                setLoadStatus("ready");
+              } catch (err) {
+                console.error("Failed to parse the selected file:", err);
+                setLoadStatus("error");
+              }
+            };
+            reader.onerror = () => setLoadStatus("error");
+            reader.readAsArrayBuffer(file);
+          };
+
+          useEffect(() => {
+            const update = () => {
+              const w = window.innerWidth || BASE_WIDTH;
+              const innerH = window.innerHeight || 800;
+              const k = computeScale(w, innerH);
+              setScale(k);
+              document.documentElement.style.setProperty("--scale", String(k));
+              setVh(Math.round(innerH / k));
+            };
+            update();
+            window.addEventListener("resize", update);
+            return () => window.removeEventListener("resize", update);
+          }, []);
+
+          useEffect(() => {
+            if (active || isContactOpen) {
+              document.body.style.overflow = 'hidden';
+            } else {
+              document.body.style.overflow = '';
+            }
+            return () => {
+              document.body.style.overflow = '';
+            };
+          }, [active, isContactOpen]);
+
+          const searchIndex = useMemo(() => buildSearchIndex(flatCategories), [flatCategories]);
+
+
+          const groupColors = useMemo(() => {
+            const colors = {};
+            flatCategories.forEach(c => { if (c.group && !colors[c.group]) colors[c.group] = c.color; });
+            return colors;
+          }, [flatCategories]);
+
+          const termLookup = useMemo(() => {
+            const lookup = {};
+            flatCategories.forEach(c => {
+              (c.subs || []).forEach((s, si) => {
+                (s.items || []).forEach((it) => {
+                  const key = it.termKey || makeTermKey(c.group, c.name, s.label, it.term);
+                  const firstPU = (it.processingUnits || [])[0] || {};
+                  lookup[key] = {
+                    termKey: key,
+                    ci: c.ci,
+                    subIdx: si,
+                    term: it.term,
+                    termZh: it.termZh,
+                    group: c.group,
+                    category: c.name,
+                    subcategory: s.label,
+                    color: c.color,
+                    definition: firstPU.whatItIs || ""
+                  };
+                });
+              });
+            });
+            return lookup;
+          }, [flatCategories]);
+
+          const enrichLink = useCallback((link) => {
+            const meta = termLookup[link.targetKey];
+            const targetColor = (meta && meta.color) || groupColors[link.targetGroup] || "#e2e8f0";
+            return Object.assign({}, link, {
+              targetColor,
+              targetTermZh: (meta && meta.termZh) || link.targetTermZh,
+              definition: (meta && meta.definition) || ""
+            });
+          }, [termLookup, groupColors]);
+
+          const buildLinksBySource = useCallback((links) => {
+            const grouped = {};
+            (links || []).forEach(link => {
+              if (!link.sourceKey) return;
+              if (!grouped[link.sourceKey]) grouped[link.sourceKey] = [];
+              grouped[link.sourceKey].push(enrichLink(link));
+            });
+            Object.keys(grouped).forEach(key => {
+              grouped[key].sort((a, b) => (a.rank || 999999) - (b.rank || 999999));
+            });
+            return grouped;
+          }, [enrichLink]);
+
+          const recommendedLinksBySource = useMemo(
+            () => buildLinksBySource(recommendedLinks),
+            [recommendedLinks, buildLinksBySource]
+          );
+
+          const allLinksReady = allLinksStatus === "ready";
+
+          const getAllLinksForSource = useCallback((termKey) => {
+            const links = allLinksBySourceRaw[termKey] || [];
+            return links.map(enrichLink);
+          }, [allLinksBySourceRaw, enrichLink]);
+
+          const suggestions = useMemo(() => {
+            if (!query.trim()) return [];
+            const nameFields = { category: fields.category, subcategory: fields.subcategory, term: fields.term };
+            return runSearch(searchIndex, query, nameFields, 8);
+          }, [searchIndex, query, fields.category, fields.subcategory, fields.term]);
+
+          const results = useMemo(() => {
+            if (!submittedQuery.trim()) return [];
+            return runSearch(searchIndex, submittedQuery, fields, 0);
+          }, [searchIndex, submittedQuery, fields]);
+
+          const hitsByCategory = useMemo(() => {
+            const counts = {};
+            results.forEach(r => { counts[r.ci] = (counts[r.ci] || 0) + 1; });
+            return counts;
+          }, [results]);
+
+          const isFiltering = submittedQuery.trim().length > 0;
+
+
+          const addTermToHistory = useCallback((info) => {
+            if (!info || !info.termKey) return;
+            setTermHistory(prev => {
+              const item = {
+                termKey: info.termKey,
+                term: info.term,
+                termZh: info.termZh,
+                category: info.category,
+                subcategory: info.subcategory,
+                color: info.color,
+                ci: info.ci,
+                subIdx: info.subIdx
+              };
+              const next = [item, ...prev.filter(x => x.termKey !== item.termKey)];
+              return next.slice(0, 40);
+            });
+          }, []);
+
+          const openTermByInfo = useCallback((info, recordHistory = true) => {
+            if (!info) return false;
+            const meta = info.termKey ? (termLookup[info.termKey] || info) : info;
+            if (meta.ci === undefined || meta.subIdx === undefined || !meta.term) return false;
+            setActive({ ci: meta.ci });
+            setDetailIdx(meta.subIdx);
+            setTargetTerm(meta.term || null);
+            setTargetTermKey(meta.termKey || null);
+            setTargetNonce(n => n + 1);
+            setIsPanelClosing(false);
+            setIsDetailLayoutActive(true);
+            setIsResultsOpen(false);
+            if (recordHistory) addTermToHistory(meta);
+            return true;
+          }, [termLookup, addTermToHistory]);
+
+          const openPreviewLink = useCallback(() => {
+            if (!previewLink) return;
+            const meta = termLookup[previewLink.targetKey];
+            const fallback = {
+              termKey: previewLink.targetKey,
+              term: previewLink.targetTerm,
+              termZh: previewLink.targetTermZh,
+              category: previewLink.targetCategory,
+              subcategory: previewLink.targetSubCategory,
+              color: previewLink.targetColor
+            };
+            const opened = openTermByInfo(meta || fallback, true);
+            if (opened) setPreviewLink(null);
+          }, [previewLink, termLookup, openTermByInfo]);
+
+          const jumpTo = (entry) => {
+            setActive({ ci: entry.ci });
+            setDetailIdx(entry.subIdx === null || entry.subIdx === undefined ? null : entry.subIdx);
+            setTargetTerm(entry.term || null);
+            setTargetTermKey(entry.termKey || null);
+            if (entry.termKey) setTargetNonce(n => n + 1);
+            setIsPanelClosing(false);
+            setIsDetailLayoutActive(entry.subIdx !== null && entry.subIdx !== undefined);
+            setIsResultsOpen(false);
+          };
+
+          const submitSearch = () => {
+            const q = query.trim();
+            setSubmittedQuery(q);
+            setIsResultsOpen(!!q);
+          };
+
+          const clearSearch = () => {
+            setQuery("");
+            setSubmittedQuery("");
+            setIsResultsOpen(false);
+            setTargetTerm(null);
+            setTargetTermKey(null);
+          };
+
+          const openCategory = (ci) => {
+            setActive({ ci });
+            setTargetTerm(null);
+            setTargetTermKey(null);
+            setDetailIdx(null);
+            setIsPanelClosing(false);
+            setIsDetailLayoutActive(false);
+          };
+
+          const closeOverlay = () => {
+            setActive(null);
+            setDetailIdx(null);
+            setIsPanelClosing(false);
+            setIsDetailLayoutActive(false);
+          };
+
+          const closeTermPanelWithAnimation = () => {
+            if (detailIdx === null) return;
+            setIsDetailLayoutActive(false);
+            setIsPanelClosing(true);
+            setTimeout(() => {
+              setDetailIdx(null);
+              setIsPanelClosing(false);
+            }, 300);
+          };
+
+          const handleOverlayClick = () => {
+            if (detailIdx !== null) {
+              closeTermPanelWithAnimation();
+            } else {
+              closeOverlay();
+            }
+          };
+
+          useEffect(() => {
+            const handleKey = (e) => {
+              if (e.key === 'Escape') {
+                if (isResultsOpen) {
+                  e.preventDefault();
+                  setIsResultsOpen(false);
+                } else if (active && detailIdx !== null) {
+                  e.preventDefault();
+                  closeTermPanelWithAnimation();
+                } else if (active) {
+                  e.preventDefault();
+                  closeOverlay();
+                } else if (isContactOpen) {
+                  e.preventDefault();
+                  setIsContactOpen(false);
+                }
+              }
+            };
+            window.addEventListener('keydown', handleKey);
+            return () => window.removeEventListener('keydown', handleKey);
+          }, [active, detailIdx, isContactOpen, isResultsOpen]);
+
+          const CategoryCard = ({ c, ci }) => {
+              const textColor = getTextColorForBackground(c.color);
+              const hitCount = hitsByCategory[c.ci] || 0;
+              const dimmed = isFiltering && hitCount === 0;
+
+              return (
+                <div
+                    role="button"
+                    tabIndex={0}
+                    onMouseDown={markPointerDown}
+                    onClick={(e) => { if (isDragOrSelection(e)) return; openCategory(ci); }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCategory(ci); }
+                    }}
+                    className={`w-full text-left relative cursor-pointer ${dimmed ? 'card-dimmed' : ''}`}
+                    aria-label={`open ${c.name} overlay`}
+                >
+                    {isFiltering && hitCount > 0 && (
+                        <span className="card-hit-badge">{hitCount}</span>
+                    )}
+                    <div
+                        className="category-card-base rounded-xl px-4 py-1.5 shadow-lg ring-1 ring-black/10 transition hover:shadow-2xl focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-white flex items-center justify-center text-center"
+                        style={{ background: c.color, color: textColor }}
+                        title={`Group: ${c.group} / Category: ${c.name} ${c.nameZh || ''}`}
+                    >
+                        <div className="w-full">
+                            <Bi
+                                en={c.name}
+                                zh={c.nameZh}
+                                enClass="text-[12px] font-semibold leading-tight break-words line-clamp-2"
+                                zhClass="font-medium leading-tight break-words line-clamp-1 opacity-90 mt-0.5"
+                                zhStyle={{ fontSize: fitZhCardSize(c.nameZh) }}
+                            />
+                        </div>
+                    </div>
+                </div>
+              );
+          };
+
+          const EmptyCard = () => (
+              <div
+                  className="category-card-base rounded-2xl p-4 transition"
+                  style={{ opacity: 0 }}
+              />
+          );
+
+          /* 结尾的空位：虚线浅灰框，明确不可点击，
+             提示 MMD 可以继续接纳新出现的研究领域 */
+          const PlaceholderCard = () => (
+              <div
+                  className="category-card-base rounded-xl flex items-center justify-center text-center select-none"
+                  style={{
+                      background: '#ffffff',
+                      border: '2px dashed #dbe1e8',
+                      color: '#cbd5e1',
+                      cursor: 'default',
+                      pointerEvents: 'none'
+                  }}
+                  aria-hidden="true"
+              >
+                  <div className="text-xl font-light leading-none">+</div>
+              </div>
+          );
+
+          const renderPage1 = () => {
+            if (loadStatus === "loading") {
+              return (
+                <div className="main-container-width flex flex-col items-center justify-center gap-3 py-32 text-slate-500">
+                  <div className="text-lg font-semibold text-slate-700">Loading the Mega-Map of Design…</div>
+                  <div className="text-sm">Reading {DATA_FILE}</div>
+                </div>
+              );
+            }
+
+            /* 本地双击打开：先请用户选择 mmd.xlsx；选错文件时给出提示并可重选 */
+            if (IS_LOCAL_FILE && (loadStatus === "await-file" || loadStatus === "error")) {
+              return (
+                <div className="main-container-width flex flex-col items-center justify-center gap-4 py-32 text-slate-500">
+                  {loadStatus === "error" ? (
+                    <div className="text-center flex flex-col items-center gap-3">
+                      <div className="text-lg font-semibold text-slate-700 mb-1">Could not load data</div>
+                      <div className="text-sm">Could not parse the selected file. Please make sure it is the MMD xlsx data file.</div>
+                      <label className="mt-2 cursor-pointer inline-block px-5 py-2.5 rounded-xl bg-[#2867A0] text-white text-sm font-medium hover:opacity-90 transition">
+                        Choose MMD xlsx
+                        <input type="file" accept=".xlsx" className="hidden" onChange={handleFileSelect} />
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="text-center flex flex-col items-center gap-4">
+                      <div className="text-sm max-w-md">Please choose the accompanying <span className="font-medium">MMD xlsx</span> data file.</div>
+                      <label className="mt-1 cursor-pointer inline-block px-6 py-3 rounded-xl bg-[#2867A0] text-white text-sm font-semibold hover:opacity-90 transition shadow-sm">
+                        Choose MMD xlsx
+                        <input type="file" accept=".xlsx" className="hidden" onChange={handleFileSelect} />
+                      </label>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            if (loadStatus === "error" || flatCategories.length === 0) {
+              return (
+                <div className="main-container-width flex flex-col items-center justify-center gap-3 py-32 text-slate-500">
+                  <div className="text-lg font-semibold text-slate-700">Could not load {DATA_FILE}</div>
+                  <div className="text-sm text-center max-w-lg">
+                    This page reads {DATA_FILE} and needs to be opened through a web server or GitHub
+                    Pages. Check that the workbook sits in the data folder next to index.html and that its
+                    name matches exactly, including capitalisation.
+                  </div>
+                  {loadError && (
+                    <div className="text-xs text-slate-400 text-center max-w-lg break-all">{loadError}</div>
+                  )}
+                  <label className="mt-2 cursor-pointer rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700">
+                    Select {DATA_FILE}
+                    <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFileSelect} />
+                  </label>
+                </div>
+              );
+            }
+
+            /* 取消 Layer 分层，全部 Category 按原表顺序平铺
+               行长 6 / 5 交替（原 Layer 3 的排列方式），偶数行反向排列 */
+            /* 队尾追加一块占位卡片，随 Category 数量一起流动 */
+            const entries = flatCategories.map(c => ({ type: 'category', c }));
+            entries.push({ type: 'placeholder' });
+
+            const blocks = [];
+            let cursor = 0;
+            let isOddRow = true;
+            while (cursor < entries.length) {
+              const size = isOddRow ? 6 : 5;
+              blocks.push({
+                items: entries.slice(cursor, cursor + size),
+                size,
+                isOddRow
+              });
+              cursor += size;
+              isOddRow = !isOddRow;
+            }
+
+            return (
+                <div className="main-container-width pt-2">
+                    {blocks.map((block, index) => {
+                        const gridClass = block.isOddRow ? 'grid-6-centered' : 'grid-5-centered';
+                        const cards = block.items.map((entry, k) => (
+                            entry.type === 'category'
+                                ? <CategoryCard key={entry.c.key} c={entry.c} ci={entry.c.ci} />
+                                : <PlaceholderCard key={`placeholder-${index}-${k}`} />
+                        ));
+                        if (!block.isOddRow) cards.reverse();
+
+                        const padCount = block.size - block.items.length;
+                        const pads = Array.from({ length: padCount }).map((_, k) => (
+                            <EmptyCard key={`empty-${index}-${k}`} />
+                        ));
+
+                        return (
+                            <div key={`row-${index}`} className={`w-full mb-[7px] ${gridClass}`}>
+                                {block.isOddRow ? [...cards, ...pads] : [...pads, ...cards]}
+                            </div>
+                        );
+                    })}
+                </div>
+            );
+          };
+
+          return (
+            <div className="min-h-screen w-full bg-white text-slate-800" style={{ zoom: scale }}>
+
+              <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b border-slate-100">
+                <div className="main-container-width pt-3 pb-0 flex flex-col items-center">
+
+                  <div className="absolute top-3 left-5">
+                      <span className="mmd-gradient text-base">
+                          MMD
+                      </span>
+                  </div>
+
+                  <div className="absolute top-3 right-5 flex items-center gap-2">
+                      <button
+                          onClick={loadAllLinkedTerms}
+                          disabled={loadStatus !== "ready" || allLinksStatus === "loading" || allLinksStatus === "ready" || !workbookBufferRef.current}
+                          className={`text-xs font-medium border px-3 py-1 rounded-lg transition ${
+                            allLinksStatus === "ready"
+                              ? "border-emerald-300 text-emerald-700 bg-emerald-50 cursor-default"
+                              : allLinksStatus === "loading"
+                                ? "border-slate-300 text-slate-500 bg-slate-50 cursor-wait"
+                                : "border-slate-300 text-slate-700 hover:bg-slate-50"
+                          }`}
+                          title={allLinksStatus === "error" ? `Load failed: ${allLinksError}. Click to retry.` : allLinksStatus === "ready" ? "All linked terms are loaded" : "Load the complete linked-term list"}
+                      >
+                          {allLinksStatus === "loading"
+                            ? `Loading all linked terms… ${allLinksProgress.toLocaleString()} / ~533,882`
+                            : allLinksStatus === "ready"
+                              ? "All linked terms loaded"
+                              : allLinksStatus === "error"
+                                ? "Retry loading all linked terms"
+                                : "Load all linked terms"}
+                      </button>
+                      <button
+                          onClick={() => setIsContactOpen(true)}
+                          className="text-xs font-medium border border-slate-300 px-3 py-1 rounded-lg text-slate-700 hover:bg-slate-50 transition"
+                      >
+                          Contact Us
+                      </button>
+                  </div>
+
+                  <h1 className="text-xl font-extrabold text-slate-900 mb-2">
+                    Mega-Map of Design
+                  </h1>
+
+                  <SearchBar
+                    query={query}
+                    setQuery={setQuery}
+                    fields={fields}
+                    setFields={setFields}
+                    suggestions={suggestions}
+                    onPick={jumpTo}
+                    onSubmit={submitSearch}
+                    onClear={clearSearch}
+                    hasResults={isFiltering}
+                    resultCount={results.length}
+                  />
+                </div>
+              </div>
+
+              <ContactDrawer
+                  isOpen={isContactOpen}
+                  onClose={() => setIsContactOpen(false)}
+              />
+
+              {isResultsOpen && (
+                <SearchResultsPanel
+                  query={submittedQuery}
+                  results={results}
+                  onPick={jumpTo}
+                  onClose={() => setIsResultsOpen(false)}
+                />
+              )}
+
+              <HistoryPanel items={termHistory} onPick={(item) => openTermByInfo(item, true)} />
+
+              {previewLink && (
+                <LinkedTermPreview
+                  link={previewLink}
+                  onClose={() => setPreviewLink(null)}
+                  onOpen={openPreviewLink}
+                />
+              )}
+
+              {renderPage1()}
+
+              {active && (() => {
+                  const C = flatCategories[active.ci];
+                  if (!C) return null;
+
+                  const subs = C.subs || [];
+                  const CENTER_H = LIST_CATEGORY_HEIGHT + 30;
+                  const CENTER_W = Math.round(CENTER_H * LIST_CATEGORY_ASPECT_RATIO);
+                  const ellipseShiftX = isDetailLayoutActive ? -160 : 0;
+                  const centerShiftX = isDetailLayoutActive ? -160 : 0;
+
+                  const { positions: POS, subW, subH } = getFixedPositionsRect(CENTER_W, CENTER_H);
+
+                  const maxSlots = POS.length;
+                  const usedCount = Math.min(subs.length, maxSlots);
+                  let ringOrder = [];
+                  if (maxSlots > 0) {
+                    let maxX = -Infinity;
+                    for (let i = 0; i < maxSlots; i++) {
+                      if (POS[i].x > maxX) maxX = POS[i].x;
+                    }
+                    const indexed = POS.map((p, idx) => ({ idx, x: p.x, y: p.y }));
+                    indexed.sort((a, b) => {
+                      const da = Math.abs(a.x - maxX);
+                      const db = Math.abs(b.x - maxX);
+                      if (da !== db) return da - db;
+                      if (a.y !== b.y) return a.y - b.y;
+                      return a.idx - b.idx;
+                    });
+                    ringOrder = indexed.map(p => p.idx);
+                  }
+                  const usedIndices = ringOrder.slice(0, usedCount);
+
+                  const centerTextColor = getTextColorForBackground(C.color);
+
+                  return (
+                    <div
+                      className="fullscreen-layer z-30 bg-slate-900/70 backdrop-blur-sm"
+                      onClick={handleOverlayClick}
+                    >
+                      <div className="flex items-center justify-center w-full h-full p-6">
+                        <div
+                          className="relative w-full max-w-7xl"
+                          style={{ height: Math.round(vh * 0.8) }}
+                        >
+                          <div className="w-full h-full flex gap-6">
+
+                            <div className="w-[65%] h-full relative">
+                              <div className="absolute inset-0">
+
+                                <div
+                                  className="absolute rounded-3xl shadow-2xl ring-2 ring-white/70 flex items-center justify-center text-center p-4 cursor-default transition-all duration-300 ease-out"
+                                  style={{
+                                    width: CENTER_W,
+                                    height: CENTER_H,
+                                    left: `calc(50% + ${centerShiftX}px)`,
+                                    top: '50%',
+                                    transform: `translate(-50%, -50%)`,
+                                    background: C.color,
+                                    color: centerTextColor,
+                                    userSelect: 'text'
+                                  }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                  }}
+                                >
+                                  <div className="max-w-[11rem]">
+                                    <Bi
+                                      en={C.name}
+                                      zh={C.nameZh}
+                                      enClass="text-base font-semibold leading-tight break-words"
+                                      zhClass="text-[17px] font-medium leading-tight break-words opacity-90 mt-1"
+                                    />
+                                  </div>
+                                </div>
+
+                                {Array.from({ length: usedCount }).map((_, idx) => {
+                                  const sub = subs[idx];
+                                  const posIndex = usedIndices[idx];
+                                  const p = POS[posIndex];
+
+                                  const isSelected = detailIdx === idx;
+                                  const isActive = (isDetailLayoutActive || isPanelClosing) && isSelected;
+
+                                  const subBg = lightenHex(C.color, 50);
+                                  const subTextColor = getTextColorForBackground(subBg);
+                                  const borderWidth = isActive ? 6 : 3;
+                                  const subBoxShadow = `0 0 0 ${borderWidth}px rgba(255,255,255,0.7), 0 8px 22px rgba(15,23,42,0.35)`;
+
+                                  return (
+                                    <div
+                                      key={idx}
+                                      role="button"
+                                      tabIndex={0}
+                                      onMouseDown={markPointerDown}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (isDragOrSelection(e)) return;
+                                        if (detailIdx === null) {
+                                          setDetailIdx(idx);
+                                          setIsPanelClosing(false);
+                                          setIsDetailLayoutActive(true);
+                                        } else if (detailIdx !== idx) {
+                                          setDetailIdx(idx);
+                                          setIsPanelClosing(false);
+                                          setIsDetailLayoutActive(true);
+                                        }
+                                      }}
+                                      className="absolute rounded-xl shadow-lg ring-1 ring-black/10 text-center flex items-center justify-center transition-all duration-300 ease-out"
+                                      style={{
+                                        width: subW,
+                                        height: subH,
+                                        left: `calc(50% + ${p.x + ellipseShiftX}px)`,
+                                        top: `calc(50% + ${p.y}px)`,
+                                        transform: 'translate(-50%, -50%)',
+                                        background: subBg,
+                                        color: subTextColor,
+                                        boxShadow: subBoxShadow,
+                                        opacity:
+                                          (isDetailLayoutActive || isPanelClosing) && detailIdx !== null && !isSelected
+                                            ? 0.4
+                                            : 1,
+                                        userSelect: 'text',
+                                        cursor: isSelected ? 'default' : 'pointer',
+                                        zIndex: isActive ? 30 : 10
+                                      }}
+                                    >
+                                      <FitBox className="px-2 py-1.5">
+                                        <Bi
+                                          en={sub?.label || "Subcategory"}
+                                          zh={sub?.labelZh}
+                                          enClass="text-[13px] font-medium leading-tight break-words"
+                                          zhClass="text-[14px] font-medium leading-tight break-words opacity-90 mt-0.5"
+                                        />
+                                      </FitBox>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            <div className="w-[35%] h-full flex items-center justify-end">
+                              {detailIdx !== null && (() => {
+                                const s = subs[detailIdx] || { label: 'No Subcategory', items: [] };
+                                const items = s.items;
+
+                                const panelBg = lightenHex(C.color, 50);
+                                const panelTextColor = getTextColorForBackground(panelBg);
+                                const panelBoxShadow = '0 0 0 6px rgba(255,255,255,0.7), 0 8px 22px rgba(15,23,42,0.35)';
+
+                                return (
+                                  <div
+                                     key={`${C.ci}-${detailIdx}`}
+                                     className={`term-panel-wrapper ${isPanelClosing ? 'term-panel-exit' : 'term-panel-enter'}`}
+                                     style={{ height: '90%', width: '100%', padding: '6px', boxSizing: 'border-box' }}
+                                     onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <div
+                                      className="rounded-3xl w-full h-full overflow-hidden transition-all ease-out shadow-lg ring-1 ring-black/10"
+                                      style={{
+                                          background: panelBg,
+                                          color: panelTextColor,
+                                          userSelect: 'text',
+                                          boxShadow: panelBoxShadow,
+                                      }}
+                                    >
+                                      {/* 标题 + 横线 */}
+                                      <div
+                                        className="px-5 pt-3 pb-2"
+                                        style={{
+                                               borderBottom: `1px solid ${hexToRgba(panelTextColor, 0.4)}`
+                                        }}
+                                      >
+                                        <div className="pr-4" style={{ color: panelTextColor }}>
+                                            <Bi
+                                                en={s.label || 'Subcategory Detail'}
+                                                zh={s.labelZh}
+                                                enClass="text-base font-bold leading-snug"
+                                                zhClass="text-xs font-semibold leading-snug opacity-90"
+                                            />
+                                        </div>
+                                      </div>
+
+                                      {/* 内容区域 */}
+                                      <div className="px-5 py-4 overflow-y-auto pb-10 term-panel-content" style={{ height: 'calc(100% - 54px)' }}>
+                                        {items.length > 0 ? (
+                                          items.map((it, i) => (
+                                            <TermItem
+                                              key={it.termKey || i}
+                                              it={it}
+                                              panelTextColor={panelTextColor}
+                                              borderColor={hexToRgba(panelTextColor, 0.3)}
+                                              isTarget={!!targetTermKey && it.termKey === targetTermKey}
+                                              targetTermKey={targetTermKey}
+                                              targetNonce={targetNonce}
+                                              recommendedLinks={recommendedLinksBySource[it.termKey] || []}
+                                              allLinks={allLinksReady ? getAllLinksForSource(it.termKey) : []}
+                                              allLinksReady={allLinksReady}
+                                              onPreviewLink={setPreviewLink}
+                                              onVisitTerm={addTermToHistory}
+                                              meta={termLookup[it.termKey] || {
+                                                termKey: it.termKey,
+                                                ci: C.ci,
+                                                subIdx: detailIdx,
+                                                term: it.term,
+                                                termZh: it.termZh,
+                                                group: C.group,
+                                                category: C.name,
+                                                subcategory: s.label,
+                                                color: C.color
+                                              }}
+                                            />
+                                          ))
+                                        ) : (
+                                          <div className="text-center text-base opacity-80 pt-10">
+                                              此 Subcategory 暂无 Term 或 Subterm 数据。
+                                          </div>
+                                        )}
+                                        <div className="h-10" />
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+
+            </div>
+          );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<DesignMapPage />);
+    </script>
+</body>
+</html>
